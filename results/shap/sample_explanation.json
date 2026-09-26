@@ -1,0 +1,74 @@
+{
+  "prediction": "Port Scan",
+  "confidence": 1.0,
+  "top_features": [
+    {
+      "feature": "Flow Packets/s",
+      "shap_value": 0.130571
+    },
+    {
+      "feature": "Flow Duration",
+      "shap_value": 0.114099
+    },
+    {
+      "feature": "Packet Length Variance",
+      "shap_value": 0.097114
+    },
+    {
+      "feature": "Bwd Packet Length Std",
+      "shap_value": 0.076506
+    },
+    {
+      "feature": "Down/Up Ratio",
+      "shap_value": 0.075482
+    },
+    {
+      "feature": "Subflow Fwd Packets",
+      "shap_value": 0.045426
+    },
+    {
+      "feature": "Total Fwd Packets",
+      "shap_value": 0.043697
+    },
+    {
+      "feature": "Bwd Avg Bytes/Bulk",
+      "shap_value": 0.043305
+    },
+    {
+      "feature": "Min Packet Length",
+      "shap_value": 0.028652
+    },
+    {
+      "feature": "Fwd Header Length",
+      "shap_value": 0.023859
+    },
+    {
+      "feature": "Idle Max",
+      "shap_value": 0.017607
+    },
+    {
+      "feature": "Active Max",
+      "shap_value": 0.016292
+    },
+    {
+      "feature": "Bwd Header Length",
+      "shap_value": 0.012327
+    },
+    {
+      "feature": "act_data_pkt_fwd",
+      "shap_value": 0.012266
+    },
+    {
+      "feature": "Idle Mean",
+      "shap_value": 0.011238
+    }
+  ],
+  "class_probabilities": {
+    "Benign": 0.0,
+    "Botnet": 0.0,
+    "Brute Force": 0.0,
+    "DoS/DDoS": 0.0,
+    "Port Scan": 1.0,
+    "Web Attack": 0.0
+  }
+}

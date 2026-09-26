@@ -1,0 +1,53 @@
+# ─────────────────────────────────
+# TRUST-SOC .gitignore
+# ─────────────────────────────────
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.so
+
+# Data & SQLite Store (large files — do not commit)
+data/raw/
+data/processed/
+data/sample/
+*.db
+*.db-*
+*.sqlite3
+
+# Models (large files)
+models/*.joblib
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Results
+results/metrics/*.csv
+
+# Jupyter Checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# Logs
+*.log

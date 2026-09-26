@@ -1,0 +1,62 @@
+[
+  {
+    "feature": "Flow Packets/s",
+    "importance": 0.041775
+  },
+  {
+    "feature": "act_data_pkt_fwd",
+    "importance": 0.037751
+  },
+  {
+    "feature": "Packet Length Variance",
+    "importance": 0.02629
+  },
+  {
+    "feature": "Flow Duration",
+    "importance": 0.025736
+  },
+  {
+    "feature": "Fwd Packet Length Min",
+    "importance": 0.023581
+  },
+  {
+    "feature": "Fwd Packets/s",
+    "importance": 0.018594
+  },
+  {
+    "feature": "Idle Max",
+    "importance": 0.018132
+  },
+  {
+    "feature": "Subflow Fwd Packets",
+    "importance": 0.014247
+  },
+  {
+    "feature": "Total Fwd Packets",
+    "importance": 0.013645
+  },
+  {
+    "feature": "Bwd Packet Length Std",
+    "importance": 0.013131
+  },
+  {
+    "feature": "Down/Up Ratio",
+    "importance": 0.012158
+  },
+  {
+    "feature": "Bwd Header Length",
+    "importance": 0.011787
+  },
+  {
+    "feature": "Idle Min",
+    "importance": 0.011693
+  },
+  {
+    "feature": "Bwd IAT Mean",
+    "importance": 0.010222
+  },
+  {
+    "feature": "Fwd IAT Mean",
+    "importance": 0.009345
+  }
+]
