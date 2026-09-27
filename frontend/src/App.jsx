@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import Dashboard from './pages/Dashboard';
 import Detection from './pages/Detection';
-import Alerts from './pages/Alerts';
 import Replay from './pages/Replay';
-import { Shield, LayoutDashboard, Search, Bell, RotateCcw } from 'lucide-react';
+import { Shield, LayoutDashboard, Search, RotateCcw } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -11,7 +10,6 @@ export default function App() {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'detection', label: 'Single Detection', icon: Search },
-    { id: 'alerts', label: 'Alert Feed', icon: Bell },
     { id: 'replay', label: 'Log Replay', icon: RotateCcw },
   ];
 
@@ -66,18 +64,12 @@ export default function App() {
             );
           })}
         </nav>
-
-        <div style={{ marginTop: 'auto', padding: '16px 8px', borderTop: '1px solid var(--border-light)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          <div><strong>Prototype Stage:</strong> Phase 1</div>
-          <div style={{ marginTop: '4px' }}>Tech: React + Chart.js + FastAPI + SQLite</div>
-        </div>
       </aside>
 
       {/* Main Content Area */}
       <main style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
         {activeTab === 'dashboard' && <Dashboard />}
         {activeTab === 'detection' && <Detection />}
-        {activeTab === 'alerts' && <Alerts />}
         {activeTab === 'replay' && <Replay />}
       </main>
     </div>

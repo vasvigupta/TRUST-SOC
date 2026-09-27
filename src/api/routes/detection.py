@@ -90,3 +90,17 @@ def detect(req: DetectRequest):
         status              = "DETECTED",
         verification_result = "NOT_IMPLEMENTED",
     )
+
+
+@router.get("/examples", summary="Get pre-configured example flow records for each class")
+def get_examples():
+    import json
+    from src.config.config import SAMPLE_DIR
+    examples_file = SAMPLE_DIR / "neutral_example_flows.json"
+    if not examples_file.exists():
+        examples_file = SAMPLE_DIR / "example_flows.json"
+    if examples_file.exists():
+        return json.loads(examples_file.read_text())
+    return {}
+
+

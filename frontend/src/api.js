@@ -19,3 +19,4 @@ export const postDetect = (features) => api.post('/detect', { features });
 export const getPdfReportUrl = (alertId) => `${API_BASE_URL}/reports/${alertId}/pdf`;
 export const getShapPlotUrl = () => `${API_BASE_URL}/reports/shap-plot`;
 export const getConfusionMatrixUrl = () => `${API_BASE_URL}/reports/confusion-matrix`;
+export const getExamples = () => api.get('/detect/examples');

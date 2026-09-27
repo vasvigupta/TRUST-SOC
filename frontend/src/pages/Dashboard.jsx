@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { getMetrics, getAlertSummary, getShapPlotUrl, getConfusionMatrixUrl } from '../api';
+import { getMetrics, getAlertSummary, getConfusionMatrixUrl } from '../api';
 import MetricsBar from '../components/MetricsBar';
+import Alerts from './Alerts';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 
@@ -38,7 +39,7 @@ export default function Dashboard() {
       <h2 style={{ marginBottom: '20px' }}>Security Operations Overview</h2>
       <MetricsBar metrics={metrics} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
         <div className="card">
           <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Alerts by Classification (SQLite Store)</h3>
           {chartData && Object.keys(summary.by_class).length > 0 ? (
@@ -53,24 +54,18 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Global SHAP Feature Importance</h3>
+          <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Confusion Matrix (Held-out Test Evaluation)</h3>
           <img
-            src={getShapPlotUrl()}
-            alt="SHAP Feature Importance"
-            style={{ width: '100%', borderRadius: '6px', maxHeight: '260px', objectFit: 'contain' }}
+            src={getConfusionMatrixUrl()}
+            alt="Confusion Matrix"
+            style={{ width: '100%', maxHeight: '260px', objectFit: 'contain' }}
             onError={(e) => { e.target.style.display = 'none'; }}
           />
         </div>
       </div>
 
-      <div className="card">
-        <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Confusion Matrix (Held-out Test Evaluation)</h3>
-        <img
-          src={getConfusionMatrixUrl()}
-          alt="Confusion Matrix"
-          style={{ width: '100%', maxHeight: '350px', objectFit: 'contain' }}
-          onError={(e) => { e.target.style.display = 'none'; }}
-        />
+      <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '28px' }}>
+        <Alerts />
       </div>
     </div>
   );
