@@ -1,6 +1,6 @@
 # TRUST-SOC: A Trust-Aware, Verification-Driven Detection Pipeline for Security Operations Centers
 
-> **BTech CSE Micro-Project — Milestones 1, 2 & 3 Deliverables**  
+> **BTech CSE Micro-Project — Milestones 1, 2, 3 & 4 Deliverables**  
 > **Team**: Madhav Bhardwaj, Vasvi Gupta, Anushka Saxena  
 > **Project Guide**: Mr. Mohit Tiwari  
 > **Institution**: Bharati Vidyapeeth's College of Engineering (BVCOE), New Delhi  
@@ -402,3 +402,115 @@ Ran 41 tests in 1.750s — OK (All tests passing)
 - [x] Live log replay simulator updated to score and persist alerts.
 - [x] CLI entry points `python run.py score` and `python run.py report` operational.
 - [x] 100% of unit tests passing in stdlib `unittest` (41/41).
+
+---
+
+## 12. Milestone 4 — FastAPI Backend & React.js + Chart.js Dashboard
+
+Milestone 4 integrates the entire TRUST-SOC pipeline into a production-grade, responsive Security Operations Center interface, comprising an asynchronous FastAPI backend and a light-themed React.js + Chart.js frontend.
+
+### 12.1 FastAPI REST API & Asynchronous SSE Streaming (Stage 4.1)
+
+The backend service is implemented in `src/api/` with modular routers:
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/health` | Healthcheck returning service state, model persistence status, and SQLite connection |
+| `GET` | `/api/stats` | Aggregated SOC counts (by band, decision, status, class) and measured FPR reduction metrics |
+| `GET` | `/api/alerts` | Paginated live alerts feed with multi-criteria filters (`confidence_band`, `verification_decision`, `predicted_class`, `status`) |
+| `GET` | `/api/alerts/{id}` | Complete Canonical Alert object with 5-tuple context, detection, verification, and audit trail |
+| `POST` | `/api/alerts/{id}/status` | Incident triage endpoint (`NEW`, `ACKNOWLEDGED`, `RESOLVED`, `FALSE_POSITIVE`) with audit logging |
+| `GET` | `/api/alerts/{id}/report/json` | Serves evidence-linked JSON triage report |
+| `GET` | `/api/alerts/{id}/report/pdf` | Serves audit-ready ReportLab PDF report stream |
+| `POST` | `/api/replay/control` | Controls log replay simulator (`start`, `pause`, `resume`, `step`, `set_rate`) |
+| `GET` | `/api/replay/status` | Replay simulator telemetry (rate, buffer index, total records, queue depth) |
+| `GET` | `/api/replay/stream` | Asynchronous Server-Sent Events (SSE) feed streaming live alerts and telemetry directly to the UI |
+| `POST` | `/api/detect` | Single flow inference running the complete pipeline (`DETECT -> VERIFY -> EXPLAIN -> PRIORITIZE`) |
+| `GET` | `/api/detect/examples` | Returns pre-configured representative test flows for immediate interactive testing |
+
+### 12.2 React.js + Chart.js Dashboard Architecture (Stage 4.2)
+
+The dashboard is built with pure React 19, Chart.js, and native CSS conforming strictly to the Section 3 Light Theme specifications (`--bg: #F7F9FC`, `--surface: #FFFFFF`, `--border: #D9E0EA`, `--text: #1F2937`, `--primary: #1F3864`, `--accent: #2F6FB3`):
+
+1. **Top Summary Metrics Bar (`TopSummaryBar.jsx`)**:
+   - Prominently showcases the **Primary Project Success Metric**: **98.79% False-Positive Rate Reduction** (from 1.3721% baseline down to 0.0167% post-verification) with only 2.39% recall cost and $\kappa = 0.608$.
+   - Displays real-time counters for Total Ingested Alerts, High-Confidence Incidents ($C \ge 0.80$), Medium-Confidence Review Items ($0.50 \le C < 0.80$), and Verified Filtered False Alarms ($p_v < 0.40$).
+2. **Controlled-Rate Replay Simulator Controls (`ReplayControls.jsx`)**:
+   - Real-time SSE connectivity indicator (`SSE Stream Connected` / `Disconnected`).
+   - Interactive playback controls: Start, Pause, Resume, Step 1 Flow, Step 10 Flows, Stop.
+   - Flow playback rate selector (1 flow/s to 50 flows/s).
+   - Dynamic progress bar tracking replay buffer progress across 12,682 evaluation flows.
+3. **Operational Analytics Charts (`AnalyticsCharts.jsx`)**:
+   - **Confidence Bands Donut Chart**: Visualizes proportion of HIGH (`#B42318`), MEDIUM (`#B54708`), and LOW (`#2E7D5B`) alerts.
+   - **Threat Category Verification Decisions Bar Chart**: Grouped breakdown showing CONFIRM (`#1F6F43`), REDUCE (`#B54708`), and REJECT (`#5B6676`) verdicts across DoS/DDoS, Port Scan, Brute Force, Web Attack, and Botnet classes.
+   - **Operational Prioritisation Matrix ($3 \times 3$) Card**: Interactive matrix mapping Confidence Band vs. Asset Criticality to operational SOC triage tiers (P1 On-Call, P2 Analyst Queue, P3 Batch Audit, P4 Suppressed).
+4. **Live Security Alerts Feed Table (`AlertsTable.jsx`)**:
+   - Multi-criteria real-time filtering: free-text search (ID, IP, class), Confidence Band dropdown, Verification Decision dropdown, Threat Class dropdown, and Incident Status dropdown.
+   - Live updates via SSE: newly ingested and verified flows appear dynamically.
+   - Displays Timestamp, Alert ID, 5-Tuple, Predicted Class, Detection Conf $p_d$, Verification Verdict, Agreement $p_v$, Composite Score $C$ + Band Badge, Status, and Action buttons.
+   - Integrated pagination with jumping controls.
+5. **Forensic Evidence Drill-Down Drawer (`AlertDrawer.jsx`)**:
+   - Slides smoothly from the right on row selection without losing dashboard context.
+   - Displays complete 5-Tuple network context & Asset Criticality.
+   - Side-by-side comparison: Detection Agent ($p_d$, Random Forest) vs. Verification Agent ($p_v$, multi-signal consensus).
+   - Visual breakdown meters for all 4 independent signals ($r, s, b, e$) with threshold-colored progress indicators.
+   - Deterministic decision rationale template explanation.
+   - SHAP Attribution Mass Drivers list with directional contributions.
+   - Analyst incident management controls: status selector (`NEW`, `ACKNOWLEDGED`, `RESOLVED`, `FALSE_POSITIVE`) with analyst note input.
+   - Direct download links for audit-ready ReportLab PDF and JSON evidence reports.
+6. **Flow-by-Flow Single Detection Pipeline (`Detection.jsx`)**:
+   - Allows analysts to paste custom flow JSON features or load pre-configured test flows.
+   - Runs full end-to-end pipeline on-demand and returns immediate detection, verification, and PDF report.
+
+### 12.3 Verification & Testing Suite (Stage 4.3)
+
+All backend endpoints and frontend integrations are validated using standard library `unittest` and `FastAPI TestClient`:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+```text
+test_detect_endpoint (tests.test_api)                                    ... ok
+test_download_reports (tests.test_api)                                   ... ok
+test_get_alerts_feed_and_filters (tests.test_api)                        ... ok
+test_get_single_alert (tests.test_api)                                   ... ok
+test_health_endpoint (tests.test_api)                                    ... ok
+test_replay_control_and_status (tests.test_api)                          ... ok
+test_stats_endpoint (tests.test_api)                                     ... ok
+test_update_status (tests.test_api)                                      ... ok
+... (plus 41 foundation, verification, scoring, and database tests) ...
+
+Ran 49 tests in 2.745s — OK (All tests passing)
+```
+
+### 12.4 Running the Full System
+
+```bash
+# Build React frontend assets
+cd frontend
+npm run build
+cd ..
+
+# Launch FastAPI backend service (serves both API & React dashboard on port 8000)
+python run.py serve
+```
+Open **`http://localhost:8000`** in any browser.
+
+---
+
+## 13. Milestone 4 Exit Gate Checklist
+
+- [x] FastAPI backend serving all 11 REST endpoints (`/api/health`, `/api/stats`, `/api/alerts`, `/api/replay/*`, `/api/detect`).
+- [x] Real-time Server-Sent Events (SSE) streaming endpoint implemented (`/api/replay/stream`).
+- [x] ReportLab PDF evidence reports served directly as application/pdf streams.
+- [x] React.js + Chart.js dashboard built with Vite and pure standard CSS.
+- [x] Section 3 Light Theme strictly enforced across all dashboard cards, tables, drawers, and charts.
+- [x] Primary Success Metric (98.79% FPR reduction) prominent on the dashboard.
+- [x] Replay controls (Play, Pause, Resume, Step, Rate slider, progress bar) fully integrated.
+- [x] Donut chart, grouped bar chart, and 3x3 Prioritisation Matrix functioning smoothly.
+- [x] Paginated live alerts table with multi-attribute filtering and status actions.
+- [x] Forensic evidence drill-down drawer with 4-signal breakdown meters, rationale, SHAP attributions, and report downloads.
+- [x] Flow-by-flow Single Detection pipeline tab operational.
+- [x] Single master CLI command `python run.py serve` starts uvicorn and hosts the application.
+- [x] 100% of unit tests passing in stdlib `unittest` (49/49).

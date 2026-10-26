@@ -1,84 +1,111 @@
 """
-FastAPI — Pydantic Schemas
-===========================
-Request and response models for all API endpoints.
+Pydantic Schemas for TRUST-SOC FastAPI Backend (Milestone 4)
+============================================================
+Defines request and response schemas matching Section 5 Canonical Alert
+and Section 13 API specifications.
 """
 
-from typing import Optional
-from pydantic import BaseModel
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, Field
 
 
-# ── Detection ─────────────────────────────────────────────────────
-
-class DetectRequest(BaseModel):
-    """One network-flow record submitted for detection."""
-    features: dict[str, float]   # { "Flow Duration": 1234.5, ... }
-
-
-class TopFeature(BaseModel):
-    feature:    str
-    shap_value: Optional[float] = None
-    importance: Optional[float] = None
+class HealthResponse(BaseModel):
+    service: str = "TRUST-SOC API"
+    version: str = "1.0.0"
+    status: str = "running"
+    models_loaded: Dict[str, bool]
+    database_connected: bool
+    docs: str
 
 
-class DetectResponse(BaseModel):
-    alert_id:             str
-    timestamp:            str
-    prediction:           str
-    probability:          float
-    class_probabilities:  dict[str, float]
-    top_features:         list[TopFeature]
-    status:               str
-    verification_result:  str
+class FPRReductionSummary(BaseModel):
+    baseline_fpr_pct: float
+    post_verification_lenient_fpr_pct: float
+    relative_reduction_pct: float
+    absolute_reduction_pct_pts: float
+    recall_cost_pct: float
+    cohens_kappa: float
 
 
-# ── Alerts ────────────────────────────────────────────────────────
+class StatsResponse(BaseModel):
+    total_alerts: int
+    by_band: Dict[str, int]
+    by_decision: Dict[str, int]
+    by_status: Dict[str, int]
+    by_class: Dict[str, int]
+    fpr_reduction: FPRReductionSummary
 
-class AlertOut(BaseModel):
-    id:                   int
-    alert_id:             str
-    timestamp:            str
-    flow_index:           Optional[int]
-    prediction:           str
-    probability:          float
-    true_label:           Optional[str]
-    status:               str
-    top_features:         list
-    class_probabilities:  dict
-    verification_result:  str
-    created_at:           str
+
+class AlertListItem(BaseModel):
+    alert_id: str
+    timestamp: str
+    src_ip: str
+    dst_ip: str
+    src_port: int
+    dst_port: int
+    protocol: int
+    predicted_class: str
+    detection_probability: float
+    verification_decision: str
+    verification_pv: float
+    composite_confidence: float
+    confidence_band: str
+    status: str
+    created_at: str
 
 
 class AlertListResponse(BaseModel):
-    total:  int
-    skip:   int
-    limit:  int
-    alerts: list[AlertOut]
+    total: int
+    skip: int
+    limit: int
+    alerts: List[AlertListItem]
 
 
-class AlertSummaryResponse(BaseModel):
-    total:    int
-    by_class: dict[str, int]
+class StatusUpdateRequest(BaseModel):
+    status: str = Field(..., description="NEW, ACKNOWLEDGED, RESOLVED, or FALSE_POSITIVE")
+    note: Optional[str] = None
 
 
-# ── Replay ────────────────────────────────────────────────────────
+class StatusUpdateResponse(BaseModel):
+    success: bool
+    alert_id: str
+    status: str
+    updated_at: str
 
-class ReplayResponse(BaseModel):
-    processed:  int
-    stored:     int
-    alerts:     list[DetectResponse]
+
+class ReplayControlRequest(BaseModel):
+    action: str = Field(..., description="'start', 'pause', 'resume', 'step', or 'set_rate'")
+    rate: Optional[float] = Field(None, description="Playback rate in records/sec")
+    n: Optional[int] = Field(1, description="Number of steps for 'step' action")
 
 
-# ── Metrics ───────────────────────────────────────────────────────
+class ReplayStatusResponse(BaseModel):
+    is_running: bool
+    is_paused: bool
+    rate: float
+    current_index: int
+    total_records: int
+    queue_depth: int
 
-class MetricsResponse(BaseModel):
-    model:               str
-    accuracy:            float
-    precision_weighted:  float
-    recall_weighted:     float
-    f1_weighted:         float
-    fpr_macro:           float
-    fpr_weighted:        float
-    fpr_per_class:       dict[str, float]
-    per_class_metrics:   dict[str, dict]
-    note_fpr:            str
+
+class DetectRequest(BaseModel):
+    features: Dict[str, float]
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class DetectResponse(BaseModel):
+    alert_id: str
+    timestamp: str
+    prediction: str
+    probability: float
+    verification_decision: str
+    verification_pv: float
+    composite_confidence: float
+    confidence_band: str
+    rationale: str
+    signals: Dict[str, Any]
+    top_features: List[Dict[str, Any]]
+    class_probabilities: Dict[str, float]
+    pdf_report_url: str
+    json_report_url: str
+

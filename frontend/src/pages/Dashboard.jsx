@@ -1,72 +1,142 @@
-import React, { useEffect, useState } from 'react';
-import { getMetrics, getAlertSummary, getConfusionMatrixUrl } from '../api';
-import MetricsBar from '../components/MetricsBar';
-import Alerts from './Alerts';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import { Doughnut } from 'react-chartjs-2';
-
-ChartJS.register(ArcElement, Tooltip, Legend);
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { getStats, getAlerts, getReplayStatus, getStreamUrl } from '../api';
+import TopSummaryBar from '../components/TopSummaryBar';
+import ReplayControls from '../components/ReplayControls';
+import AnalyticsCharts from '../components/AnalyticsCharts';
+import AlertsTable from '../components/AlertsTable';
+import AlertDrawer from '../components/AlertDrawer';
 
 export default function Dashboard() {
-  const [metrics, setMetrics] = useState(null);
-  const [summary, setSummary] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [replayStatus, setReplayStatus] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [totalAlerts, setTotalAlerts] = useState(0);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([getMetrics(), getAlertSummary()])
-      .then(([mRes, sRes]) => {
-        setMetrics(mRes.data);
-        setSummary(sRes.data);
-      })
-      .catch((err) => console.error('Error fetching dashboard data:', err))
-      .finally(() => setLoading(false));
+  const eventSourceRef = useRef(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [statsRes, alertsRes, replayRes] = await Promise.all([
+        getStats(),
+        getAlerts({ limit: 100 }),
+        getReplayStatus(),
+      ]);
+      setStats(statsRes.data);
+      setAlerts(alertsRes.data.alerts || []);
+      setTotalAlerts(alertsRes.data.total || 0);
+      setReplayStatus(replayRes.data);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  if (loading) return <div>Loading SOC metrics & baseline...</div>;
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  const chartData = summary && summary.by_class ? {
-    labels: Object.keys(summary.by_class),
-    datasets: [
-      {
-        data: Object.values(summary.by_class),
-        backgroundColor: ['#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'],
-      },
-    ],
-  } : null;
+  // Real-time SSE Stream listener
+  useEffect(() => {
+    const streamUrl = getStreamUrl();
+    const es = new EventSource(streamUrl);
+    eventSourceRef.current = es;
+
+    es.onopen = () => {
+      setIsStreaming(true);
+    };
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'alert' && data.data) {
+          const newAlert = data.data;
+          setAlerts((prev) => [newAlert, ...prev.slice(0, 199)]);
+          setTotalAlerts((prev) => prev + 1);
+        } else if (data.type === 'status' && data.data) {
+          setReplayStatus(data.data);
+        }
+      } catch (e) {
+        console.error('SSE JSON parse error:', e);
+      }
+    };
+
+    es.onerror = () => {
+      setIsStreaming(false);
+    };
+
+    return () => {
+      if (es) {
+        es.close();
+      }
+    };
+  }, []);
+
+  // Poll replay status periodically if running
+  useEffect(() => {
+    const timer = setInterval(() => {
+      getReplayStatus()
+        .then((res) => setReplayStatus(res.data))
+        .catch(() => {});
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleStatusUpdated = (alertId, newStatus) => {
+    setAlerts((prev) =>
+      prev.map((a) => (a.alert_id === alertId ? { ...a, status: newStatus } : a))
+    );
+    if (selectedAlert && selectedAlert.alert_id === alertId) {
+      setSelectedAlert((prev) => ({ ...prev, status: newStatus }));
+    }
+  };
 
   return (
     <div>
-      <h2 style={{ marginBottom: '20px' }}>Security Operations Overview</h2>
-      <MetricsBar metrics={metrics} />
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
-        <div className="card">
-          <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Alerts by Classification (SQLite Store)</h3>
-          {chartData && Object.keys(summary.by_class).length > 0 ? (
-            <div style={{ maxHeight: '260px', display: 'flex', justifyContent: 'center' }}>
-              <Doughnut data={chartData} options={{ maintainAspectRatio: false }} />
-            </div>
-          ) : (
-            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>
-              No alerts recorded yet. Go to the Replay or Detection tab!
-            </div>
-          )}
-        </div>
-
-        <div className="card">
-          <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Confusion Matrix (Held-out Test Evaluation)</h3>
-          <img
-            src={getConfusionMatrixUrl()}
-            alt="Confusion Matrix"
-            style={{ width: '100%', maxHeight: '260px', objectFit: 'contain' }}
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-        </div>
+      {/* Page Title */}
+      <div style={{ marginBottom: '20px' }}>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.02em' }}>
+          Security Operations Center (SOC) Live Monitoring
+        </h2>
+        <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+          Trust-Aware, Multi-Signal Verification Pipeline & Alert Prioritisation Engine
+        </p>
       </div>
 
-      <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '28px' }}>
-        <Alerts />
-      </div>
+      {/* Top Metrics & FPR Reduction Summary */}
+      <TopSummaryBar stats={stats} />
+
+      {/* Controlled-Rate Replay Simulator */}
+      <ReplayControls
+        status={replayStatus}
+        isStreaming={isStreaming}
+        onRefresh={fetchData}
+      />
+
+      {/* Analytic Charts & Prioritisation Matrix */}
+      <AnalyticsCharts stats={stats} />
+
+      {/* Live Alerts Feed Table */}
+      <AlertsTable
+        alerts={alerts}
+        totalAlerts={totalAlerts}
+        onSelectAlert={(alert) => setSelectedAlert(alert)}
+        onRefresh={fetchData}
+        loading={loading}
+      />
+
+      {/* Forensic Drill-Down Evidence Drawer */}
+      {selectedAlert && (
+        <AlertDrawer
+          alert={selectedAlert}
+          onClose={() => setSelectedAlert(null)}
+          onStatusUpdated={handleStatusUpdated}
+        />
+      )}
     </div>
   );
 }
