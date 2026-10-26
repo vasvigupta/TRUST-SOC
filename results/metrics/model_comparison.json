@@ -1,0 +1,49 @@
+{
+  "dataset_split": "CICIDS2017 Stratified 70/15/15",
+  "random_forest": {
+    "validation": {
+      "accuracy": 0.9923,
+      "macro_f1": 0.9521,
+      "weighted_f1": 0.9931,
+      "alert_level_fpr": 0.0124,
+      "false_alerts": 223,
+      "total_benign": 18000,
+      "latency_ms_per_sample": 0.0098
+    },
+    "test": {
+      "accuracy": 0.9914,
+      "macro_f1": 0.9468,
+      "weighted_f1": 0.9923,
+      "alert_level_fpr": 0.0137,
+      "false_alerts": 247,
+      "total_benign": 18001,
+      "latency_ms_per_sample": 0.0092
+    }
+  },
+  "xgboost": {
+    "train_time_sec": 42.96,
+    "validation": {
+      "accuracy": 0.9978,
+      "macro_f1": 0.9824,
+      "weighted_f1": 0.9978,
+      "alert_level_fpr": 0.002,
+      "false_alerts": 36,
+      "total_benign": 18000,
+      "latency_ms_per_sample": 0.0131
+    },
+    "test": {
+      "accuracy": 0.9978,
+      "macro_f1": 0.9832,
+      "weighted_f1": 0.9978,
+      "alert_level_fpr": 0.0025,
+      "false_alerts": 45,
+      "total_benign": 18001,
+      "latency_ms_per_sample": 0.0203
+    }
+  },
+  "decision": {
+    "primary_baseline": "random_forest",
+    "alternative_option": "xgboost",
+    "justification": "Random Forest is retained as the primary Detection Agent baseline per the synopsis specification. Both models achieve exceptional accuracy (>99.1%) and macro-F1 (>0.94). Random Forest provides instantaneous SHAP TreeExplainer evaluation with exact Shapley values and robust multiclass stability. XGBoost is fully integrated and switchable via MODEL_TYPE."
+  }
+}

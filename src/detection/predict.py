@@ -1,223 +1,261 @@
 """
-Detection Agent — Evaluation
-==============================
-Runs the trained model against the held-out test set and
-saves all metrics, confusion matrix, and classification report.
-
-False Positive Rate (FPR) Calculation
---------------------------------------
-For a multi-class problem we compute per-class FPR using
-the one-vs-rest approach:
-
-    FPR_class_i = FP_i / (FP_i + TN_i)
-
-where FP_i = samples of other classes predicted as class i
-      TN_i = samples of other classes correctly predicted as NOT class i
-
-We then report:
-    - per-class FPR
-    - macro-average FPR (unweighted mean across classes)
-    - weighted-average FPR (weighted by class support)
-
-This baseline FPR is the TARGET for the Verification Agent to reduce.
+Detection Agent Baseline Evaluation (Stage 1.5)
+================================================
+Evaluates the Detection Agent on the held-out test split.
+Calculates:
+- Primary Alert-Level False Positive Rate (FPR) as defined in Section 4.5:
+      FPR = (# true Benign flows raised as alerts) / (# total true Benign flows)
+      where ALERT = any flow classified as non-Benign.
+- Multiclass one-vs-rest FPR, Precision, Recall, and F1 per class.
+- Macro and weighted metrics.
+- Saves confusion matrix plot (pure Matplotlib, light theme).
+- Saves predictions on validation and test splits for Milestone 2 consumption.
 """
 
-import sys
+import os
 import json
 import logging
+from pathlib import Path
+from typing import List, Dict, Any
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import seaborn as sns
-from pathlib import Path
+import joblib
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score,
-    f1_score, classification_report, confusion_matrix,
+    f1_score, classification_report, confusion_matrix
 )
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.config.config import (
-    METRICS_DIR, CM_DIR, REPORTS_DIR,
+    MODEL_PATH, METRICS_DIR, CM_DIR, REPORTS_DIR,
+    PROCESSED_X_VAL, PROCESSED_Y_VAL,
     PROCESSED_X_TEST, PROCESSED_Y_TEST,
+    ENCODER_PATH, FEATURE_NAMES_PATH,
+    PROJECT_CLASSES
 )
+from src.config.theme import THEME, apply_matplotlib_theme
 from src.detection.model import DetectionAgent
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%H:%M:%S",
-)
-log = logging.getLogger("TRUST-SOC.predict")
+log = logging.getLogger("TRUST-SOC.detection.evaluate")
 
 
-# ─────────────────────────────────────────────────────────────────
-# FPR Calculation (one-vs-rest, multiclass)
-# ─────────────────────────────────────────────────────────────────
-
-def compute_fpr_multiclass(y_true, y_pred, n_classes):
+def evaluate(model_path: Path = MODEL_PATH, model_name: str = "Detection Agent Baseline"):
     """
-    Per-class FPR via one-vs-rest confusion matrix.
-    Returns (per_class_fpr, macro_fpr, weighted_fpr).
+    Runs full evaluation on the held-out test set and saves baseline metrics.
     """
-    cm = confusion_matrix(y_true, y_pred, labels=list(range(n_classes)))
-    fp = cm.sum(axis=0) - np.diag(cm)   # column sum minus TP
-    fn = cm.sum(axis=1) - np.diag(cm)
-    tp = np.diag(cm)
-    tn = cm.sum() - (fp + fn + tp)
+    METRICS_DIR.mkdir(parents=True, exist_ok=True)
+    CM_DIR.mkdir(parents=True, exist_ok=True)
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    (METRICS_DIR.parent / "predictions").mkdir(parents=True, exist_ok=True)
 
-    per_class_fpr = np.where((fp + tn) > 0, fp / (fp + tn), 0.0)
-    support       = cm.sum(axis=1)
+    agent = DetectionAgent.load(model_path)
+    encoder = joblib.load(ENCODER_PATH)
 
-    macro_fpr    = float(np.mean(per_class_fpr))
-    weighted_fpr = float(np.average(per_class_fpr, weights=support))
+    log.info("Loading test and validation splits...")
+    X_test = joblib.load(PROCESSED_X_TEST)
+    y_test = joblib.load(PROCESSED_Y_TEST)
+    X_val  = joblib.load(PROCESSED_X_VAL)
+    y_val  = joblib.load(PROCESSED_Y_VAL)
 
-    return per_class_fpr, macro_fpr, weighted_fpr
+    classes = list(encoder.classes_)
+    benign_idx = int(encoder.transform(["Benign"])[0])
 
+    # 1. Generate predictions and probabilities on Test split
+    log.info(f"Generating test predictions on {len(X_test):,} flows...")
+    y_test_pred = agent.predict(X_test)
+    y_test_proba = agent.predict_proba(X_test)
 
-# ─────────────────────────────────────────────────────────────────
-# Plot confusion matrix
-# ─────────────────────────────────────────────────────────────────
+    # 2. Compute Alert-Level Binary FPR (Section 4.5 REFERENCE METRIC)
+    # ALERT = any flow predicted as non-Benign
+    true_benign_mask = (y_test == benign_idx)
+    total_true_benign = int(np.sum(true_benign_mask))
 
-def plot_confusion_matrix(cm, class_names, save_path):
-    fig, ax = plt.subplots(figsize=(10, 8))
-    sns.heatmap(
-        cm, annot=True, fmt="d", cmap="Blues",
-        xticklabels=class_names, yticklabels=class_names,
-        ax=ax, linewidths=0.5,
-    )
-    ax.set_xlabel("Predicted Label", fontsize=12)
-    ax.set_ylabel("True Label", fontsize=12)
-    ax.set_title("TRUST-SOC Detection Agent — Confusion Matrix", fontsize=13)
-    plt.tight_layout()
-    fig.savefig(save_path, dpi=150)
-    plt.close(fig)
-    log.info(f"Confusion matrix saved → {save_path}")
+    # False alerts = true benign flows classified as an attack class
+    benign_false_alerts = int(np.sum(true_benign_mask & (y_test_pred != benign_idx)))
+    alert_level_fpr = float(benign_false_alerts / total_true_benign) if total_true_benign > 0 else 0.0
 
+    log.info("=" * 65)
+    log.info(f"PRIMARY REFERENCE METRIC — ALERT-LEVEL FPR BEFORE VERIFICATION:")
+    log.info(f"  FPR_before = {benign_false_alerts:,} / {total_true_benign:,} = {alert_level_fpr:.4f} ({alert_level_fpr*100:.2f}%)")
+    log.info("=" * 65)
 
-# ─────────────────────────────────────────────────────────────────
-# Main evaluation
-# ─────────────────────────────────────────────────────────────────
+    # 3. Overall Multiclass Metrics
+    accuracy = float(accuracy_score(y_test, y_test_pred))
+    macro_precision = float(precision_score(y_test, y_test_pred, average="macro", zero_division=0))
+    macro_recall = float(recall_score(y_test, y_test_pred, average="macro", zero_division=0))
+    macro_f1 = float(f1_score(y_test, y_test_pred, average="macro", zero_division=0))
+    weighted_f1 = float(f1_score(y_test, y_test_pred, average="weighted", zero_division=0))
 
-def evaluate():
-    log.info("=" * 60)
-    log.info("TRUST-SOC  |  Detection Agent — Evaluation (Baseline)")
-    log.info("=" * 60)
+    # 4. Per-Class One-vs-Rest Confusion Matrix & Per-Class FPR
+    cm = confusion_matrix(y_test, y_test_pred, labels=list(range(len(classes))))
+    per_class_metrics = {}
 
-    # Load model
-    agent = DetectionAgent.load()
-    encoder = agent.encoder
-    class_names = list(encoder.classes_)
-    n_classes   = len(class_names)
+    fp_sum = 0
+    tn_sum = 0
+    per_class_fprs = []
 
-    # Load test data
-    X_test = pd.read_parquet(PROCESSED_X_TEST)
-    y_test = pd.read_parquet(PROCESSED_Y_TEST)["label"].values
-    log.info(f"Test set: {X_test.shape[0]:,} samples, {n_classes} classes")
+    for i, cls_name in enumerate(classes):
+        tp_i = int(cm[i, i])
+        fn_i = int(np.sum(cm[i, :]) - tp_i)
+        fp_i = int(np.sum(cm[:, i]) - tp_i)
+        tn_i = int(np.sum(cm) - (tp_i + fn_i + fp_i))
 
-    # Predict
-    y_pred = agent.predict(X_test)
+        prec_i = float(tp_i / (tp_i + fp_i)) if (tp_i + fp_i) > 0 else 0.0
+        rec_i  = float(tp_i / (tp_i + fn_i)) if (tp_i + fn_i) > 0 else 0.0
+        f1_i   = float(2 * prec_i * rec_i / (prec_i + rec_i)) if (prec_i + rec_i) > 0 else 0.0
+        fpr_i  = float(fp_i / (fp_i + tn_i)) if (fp_i + tn_i) > 0 else 0.0
 
-    # ── Core metrics ─────────────────────────────────────────────
-    accuracy  = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred, average="weighted", zero_division=0)
-    recall    = recall_score(y_test, y_pred, average="weighted", zero_division=0)
-    f1        = f1_score(y_test, y_pred, average="weighted", zero_division=0)
+        per_class_fprs.append(fpr_i)
+        fp_sum += fp_i
+        tn_sum += tn_i
 
-    per_class_fpr, macro_fpr, weighted_fpr = compute_fpr_multiclass(y_test, y_pred, n_classes)
+        per_class_metrics[cls_name] = {
+            "support": int(np.sum(cm[i, :])),
+            "precision": round(prec_i, 4),
+            "recall": round(rec_i, 4),
+            "f1_score": round(f1_i, 4),
+            "fpr_one_vs_rest": round(fpr_i, 4),
+            "tp": tp_i,
+            "fp": fp_i,
+            "tn": tn_i,
+            "fn": fn_i,
+        }
 
-    log.info(f"\n  {'Accuracy':.<30} {accuracy:.4f}")
-    log.info(f"  {'Precision (weighted)':.<30} {precision:.4f}")
-    log.info(f"  {'Recall (weighted)':.<30} {recall:.4f}")
-    log.info(f"  {'F1 (weighted)':.<30} {f1:.4f}")
-    log.info(f"  {'FPR (macro avg)':.<30} {macro_fpr:.4f}")
-    log.info(f"  {'FPR (weighted avg)':.<30} {weighted_fpr:.4f}")
-    log.info("\n  Per-class FPR:")
-    for cls, fpr in zip(class_names, per_class_fpr):
-        log.info(f"    {cls:<25} {fpr:.4f}")
+    macro_ovr_fpr = float(np.mean(per_class_fprs))
 
-    # ── Classification report ─────────────────────────────────────
-    report_str = classification_report(
-        y_test, y_pred,
-        target_names=class_names,
-        zero_division=0,
-    )
-    log.info(f"\nClassification Report:\n{report_str}")
-
-    # ── Confusion matrix ──────────────────────────────────────────
-    cm = confusion_matrix(y_test, y_pred)
-
-    # ── Save results ──────────────────────────────────────────────
-    for d in [METRICS_DIR, CM_DIR, REPORTS_DIR]:
-        d.mkdir(parents=True, exist_ok=True)
-
-    # Per-class metrics from classification_report
-    report_dict = classification_report(
-        y_test, y_pred,
-        target_names=class_names,
-        output_dict=True,
-        zero_division=0,
-    )
-
-    # Build metrics JSON
-    metrics = {
-        "model":              "Random Forest (baseline)",
-        "accuracy":           round(accuracy, 4),
-        "precision_weighted": round(precision, 4),
-        "recall_weighted":    round(recall, 4),
-        "f1_weighted":        round(f1, 4),
-        "fpr_macro":          round(macro_fpr, 4),
-        "fpr_weighted":       round(weighted_fpr, 4),
-        "fpr_per_class":      {
-            cls: round(float(fpr), 4)
-            for cls, fpr in zip(class_names, per_class_fpr)
+    # 5. Format and Save Baseline Results
+    baseline_metrics = {
+        "model_name": model_name,
+        "model_type": agent.model_type,
+        "test_samples": len(y_test),
+        "primary_alert_level_fpr": {
+            "total_true_benign": total_true_benign,
+            "benign_flows_falsely_alerted": benign_false_alerts,
+            "alert_level_fpr_before_verification": round(alert_level_fpr, 4),
+            "alert_level_fpr_percentage": f"{alert_level_fpr*100:.2f}%",
+            "formula": "FP_benign / (FP_benign + TN_benign) over all non-benign predictions"
         },
-        "per_class_metrics":  {
-            cls: {k: round(v, 4) for k, v in report_dict[cls].items()}
-            for cls in class_names
+        "multiclass_metrics": {
+            "accuracy": round(accuracy, 4),
+            "macro_precision": round(macro_precision, 4),
+            "macro_recall": round(macro_recall, 4),
+            "macro_f1": round(macro_f1, 4),
+            "weighted_f1": round(weighted_f1, 4),
+            "macro_one_vs_rest_fpr": round(macro_ovr_fpr, 4),
         },
-        "note_fpr": (
-            "FPR calculated one-vs-rest. "
-            "FP_i = samples of other classes predicted as class i. "
-            "Macro = unweighted mean. Weighted = support-weighted mean."
-        ),
+        "per_class": per_class_metrics,
+        "confusion_matrix": cm.tolist(),
+        "classes": classes
     }
 
+    # Save JSON
     json_path = METRICS_DIR / "detection_baseline.json"
-    with open(json_path, "w") as f:
-        json.dump(metrics, f, indent=2)
-    log.info(f"Metrics JSON saved → {json_path}")
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(baseline_metrics, f, indent=2)
+    log.info(f"Saved baseline metrics JSON to {json_path}")
 
-    # CSV
+    # Save CSV summary
+    csv_rows = []
+    for cls_name, m in per_class_metrics.items():
+        csv_rows.append({
+            "class": cls_name,
+            "support": m["support"],
+            "precision": m["precision"],
+            "recall": m["recall"],
+            "f1_score": m["f1_score"],
+            "fpr_ovr": m["fpr_one_vs_rest"],
+        })
+    csv_df = pd.DataFrame(csv_rows)
     csv_path = METRICS_DIR / "detection_baseline.csv"
-    pd.DataFrame([{
-        "accuracy": accuracy, "precision": precision,
-        "recall": recall, "f1": f1,
-        "fpr_macro": macro_fpr, "fpr_weighted": weighted_fpr,
-    }]).to_csv(csv_path, index=False)
+    csv_df.to_csv(csv_path, index=False)
+    log.info(f"Saved baseline metrics CSV to {csv_path}")
 
-    # Classification report text
-    txt_path = REPORTS_DIR / "classification_report.txt"
-    with open(txt_path, "w") as f:
-        f.write("TRUST-SOC Detection Agent — Baseline Classification Report\n")
-        f.write("=" * 60 + "\n\n")
-        f.write(report_str)
-        f.write("\n\nFPR (per class):\n")
-        for cls, fpr in zip(class_names, per_class_fpr):
-            f.write(f"  {cls:<25} {fpr:.4f}\n")
-        f.write(f"\nFPR macro avg:    {macro_fpr:.4f}\n")
-        f.write(f"FPR weighted avg: {weighted_fpr:.4f}\n")
+    # Save Classification Report text
+    clf_report = classification_report(y_test, y_test_pred, target_names=classes, digits=4, zero_division=0)
+    report_text_path = REPORTS_DIR / "classification_report.txt"
+    with open(report_text_path, "w", encoding="utf-8") as f:
+        f.write("=" * 65 + "\n")
+        f.write("TRUST-SOC DETECTION AGENT BASELINE CLASSIFICATION REPORT\n")
+        f.write("=" * 65 + "\n\n")
+        f.write(f"Model: {agent.model_type}\n")
+        f.write(f"Test Set Size: {len(y_test):,} flows\n\n")
+        f.write(f"PRIMARY METRIC — Alert-Level FPR: {alert_level_fpr:.4f} ({alert_level_fpr*100:.2f}%)\n")
+        f.write(f"Overall Accuracy:                 {accuracy:.4f}\n")
+        f.write(f"Macro F1 Score:                   {macro_f1:.4f}\n")
+        f.write(f"Weighted F1 Score:                {weighted_f1:.4f}\n\n")
+        f.write(clf_report + "\n")
+    log.info(f"Saved classification report to {report_text_path}")
 
-    # Confusion matrix plot
+    # 6. Plot Confusion Matrix (Pure Matplotlib, Light Theme, Section 3 tokens)
     cm_path = CM_DIR / "confusion_matrix.png"
-    plot_confusion_matrix(cm, class_names, cm_path)
+    plot_light_confusion_matrix(cm, classes, cm_path)
 
-    log.info("=" * 60)
-    log.info("Evaluation COMPLETE.")
-    log.info("=" * 60)
-    return metrics
+    # 7. Save Validation and Test Predictions for Milestone 2 Consumption
+    log.info("Generating and saving validation split predictions for Milestone 2...")
+    y_val_pred = agent.predict(X_val)
+    y_val_proba = agent.predict_proba(X_val)
+
+    val_preds_bundle = {
+        "y_true": y_val,
+        "y_pred": y_val_pred,
+        "y_proba": y_val_proba,
+        "classes": classes,
+    }
+    test_preds_bundle = {
+        "y_true": y_test,
+        "y_pred": y_test_pred,
+        "y_proba": y_test_proba,
+        "classes": classes,
+    }
+    joblib.dump(val_preds_bundle, METRICS_DIR.parent / "predictions" / "val_predictions.joblib", compress=3)
+    joblib.dump(test_preds_bundle, METRICS_DIR.parent / "predictions" / "test_predictions.joblib", compress=3)
+    log.info("Saved val_predictions.joblib and test_predictions.joblib for Milestone 2.")
+
+    return baseline_metrics
+
+
+def plot_light_confusion_matrix(cm: np.ndarray, classes: List[str], save_path: Path):
+    """
+    Renders an accessible, light-theme confusion matrix using pure Matplotlib.
+    """
+    apply_matplotlib_theme(plt)
+
+    fig, ax = plt.subplots(figsize=(8.5, 7), facecolor=THEME["surface"])
+
+    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    ax.set(
+        xticks=np.arange(cm.shape[1]),
+        yticks=np.arange(cm.shape[0]),
+        xticklabels=classes,
+        yticklabels=classes,
+        title="Detection Agent Baseline — Confusion Matrix (Test Split)",
+        ylabel="True Label (Ground Truth)",
+        xlabel="Predicted Label"
+    )
+
+    plt.setp(ax.get_xticklabels(), rotation=30, ha="right", rotation_mode="anchor")
+
+    # Annotate values inside matrix
+    thresh = cm.max() / 2.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            val = cm[i, j]
+            color = "#FFFFFF" if val > thresh else THEME["text"]
+            ax.text(j, i, f"{val:,}", ha="center", va="center", color=color, fontsize=9, weight="bold")
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color(THEME["border"])
+    ax.spines["bottom"].set_color(THEME["border"])
+
+    plt.tight_layout()
+    fig.savefig(save_path, dpi=300, facecolor=THEME["surface"], bbox_inches="tight")
+    plt.close(fig)
+    log.info(f"Saved confusion matrix plot to {save_path}")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     evaluate()

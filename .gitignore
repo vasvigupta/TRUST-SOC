@@ -19,15 +19,16 @@ data/sample/
 *.db-*
 *.sqlite3
 
-# Models (large files)
+# Models (large binaries)
 models/*.joblib
+models/*.pkl
 
 # Node / Frontend
 frontend/node_modules/
 frontend/dist/
 
-# Results
-results/metrics/*.csv
+# Results large binaries / predictions
+results/predictions/
 
 # Jupyter Checkpoints
 .ipynb_checkpoints/
@@ -46,8 +47,9 @@ env/
 .DS_Store
 Thumbs.db
 
-# Streamlit
-.streamlit/
+# Streamlit config is kept; temporary session data ignored
+.streamlit/*
+!.streamlit/config.toml
 
-# Logs
+# Logs & tasks
 *.log

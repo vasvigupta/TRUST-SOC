@@ -1,132 +1,136 @@
 """
-Detection Agent — Model Definition
-====================================
-Random Forest baseline with a clean interface
-that can be swapped for XGBoost later.
+Detection Agent — Model Interface & Implementation (Stage 1.4)
+===============================================================
+Encapsulates the trained classifier (Random Forest baseline or XGBoost alternative).
+
+Interface contract:
+    detector = DetectionAgent.load()
+    detector.predict(features)
+    detector.predict_proba(features)
+    detector.detect(flow) -> {predicted_class, probability, class_probabilities, is_alert}
 """
 
-import sys
+import os
 import logging
 from pathlib import Path
-import joblib
+from typing import Dict, Any, List, Union
 import numpy as np
+import joblib
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from src.config.config import RF_PARAMS, MODEL_TYPE, MODEL_PATH, ENCODER_PATH, FEATURE_NAMES_PATH
+from src.config.config import (
+    MODEL_TYPE, RF_PARAMS, XGB_PARAMS,
+    MODEL_PATH, XGB_MODEL_PATH, ENCODER_PATH, FEATURE_NAMES_PATH,
+    PROJECT_CLASSES
+)
 
-log = logging.getLogger("TRUST-SOC.model")
+log = logging.getLogger("TRUST-SOC.detection.model")
 
 
 class DetectionAgent:
     """
-    Wrapper around the trained classifier.
-
-    Usage
-    -----
-    agent = DetectionAgent.load()
-    pred   = agent.predict(X)
-    proba  = agent.predict_proba(X)
+    Standardized, swappable Detection Agent wrapper.
     """
 
-    def __init__(self, classifier, encoder, feature_names):
-        self.classifier    = classifier
-        self.encoder       = encoder
+    def __init__(self, classifier, encoder, feature_names: List[str], model_type: str = "random_forest"):
+        self.classifier = classifier
+        self.encoder = encoder
         self.feature_names = feature_names
-
-    # ── Training ──────────────────────────────────────────────────
+        self.model_type = model_type
+        # Cache benign index
+        if hasattr(encoder, "transform"):
+            self.benign_idx = int(encoder.transform(["Benign"])[0])
+        else:
+            self.benign_idx = 0
 
     @classmethod
     def build(cls, model_type: str = MODEL_TYPE):
-        """Build an untrained DetectionAgent with the configured classifier."""
+        """
+        Builds an untrained classifier based on configuration.
+        """
         if model_type == "random_forest":
             from sklearn.ensemble import RandomForestClassifier
             clf = RandomForestClassifier(**RF_PARAMS)
         elif model_type == "xgboost":
             from xgboost import XGBClassifier
-            clf = XGBClassifier(
-                n_estimators=RF_PARAMS["n_estimators"],
-                max_depth=6,
-                random_state=RF_PARAMS["random_state"],
-                n_jobs=-1,
-                eval_metric="mlogloss",
-                use_label_encoder=False,
-            )
+            clf = XGBClassifier(**XGB_PARAMS)
         else:
-            raise ValueError(f"Unknown model_type: {model_type}. Use 'random_forest' or 'xgboost'.")
-        log.info(f"Built {model_type} classifier: {clf}")
+            raise ValueError(f"ERROR: Unknown MODEL_TYPE '{model_type}'. Choose 'random_forest' or 'xgboost'.")
         return clf
 
-    # ── Save / Load ───────────────────────────────────────────────
-
     def save(self, path: Path = MODEL_PATH):
+        """
+        Persists the trained model bundle to disk.
+        """
         path.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(
-            {"classifier": self.classifier,
-             "encoder":    self.encoder,
-             "features":   self.feature_names},
-            path,
-        )
-        log.info(f"Model saved → {path}")
+        bundle = {
+            "classifier": self.classifier,
+            "encoder": self.encoder,
+            "feature_names": self.feature_names,
+            "model_type": self.model_type,
+        }
+        joblib.dump(bundle, path, compress=3)
+        log.info(f"Saved DetectionAgent ({self.model_type}) to {path}")
 
     @classmethod
     def load(cls, path: Path = MODEL_PATH):
+        """
+        Loads a saved DetectionAgent bundle from disk. Fails clearly if absent.
+        """
         if not path.exists():
             raise FileNotFoundError(
                 f"ERROR: Detection model not found at {path}.\n"
-                "Train the model first:  python -m src.detection.train"
+                "Run: python run.py train"
             )
         bundle = joblib.load(path)
-        log.info(f"Model loaded ← {path}")
-        return cls(bundle["classifier"], bundle["encoder"], bundle["features"])
+        log.info(f"Loaded DetectionAgent ({bundle.get('model_type', 'unknown')}) from {path}")
+        return cls(
+            classifier=bundle["classifier"],
+            encoder=bundle["encoder"],
+            feature_names=bundle["feature_names"],
+            model_type=bundle.get("model_type", "random_forest")
+        )
 
-    # ── Inference ─────────────────────────────────────────────────
-
-    def predict(self, X) -> np.ndarray:
-        """Return integer-encoded class predictions."""
-        return self.classifier.predict(X)
-
-    def predict_proba(self, X) -> np.ndarray:
-        """Return probability array (n_samples, n_classes)."""
-        return self.classifier.predict_proba(X)
-
-    def predict_label(self, X) -> list:
-        """Return human-readable class labels."""
-        preds = self.predict(X)
-        return list(self.encoder.inverse_transform(preds))
-
-    def predict_single(self, x_row) -> dict:
+    def predict(self, features: np.ndarray) -> np.ndarray:
         """
-        Full prediction for one row.
-
-        Parameters
-        ----------
-        x_row : array-like, shape (n_features,)
-
-        Returns
-        -------
-        dict with keys: prediction, probability, class_probabilities
+        Predicts integer class indices for an array of feature vectors.
         """
-        import pandas as pd
-        if hasattr(x_row, "values"):
-            x_arr = pd.DataFrame(x_row.values.reshape(1, -1), columns=self.feature_names)
+        return self.classifier.predict(features)
+
+    def predict_proba(self, features: np.ndarray) -> np.ndarray:
+        """
+        Returns class probability distribution matrix of shape (n_samples, n_classes).
+        """
+        return self.classifier.predict_proba(features)
+
+    def detect(self, flow_features: Union[np.ndarray, Dict[str, float]]) -> Dict[str, Any]:
+        """
+        Inference interface for a single flow record.
+        Returns: {predicted_class, probability, class_probabilities, is_alert}
+        """
+        if isinstance(flow_features, dict):
+            # Align dictionary to expected feature list order
+            vec = np.array([flow_features.get(f, 0.0) for f in self.feature_names], dtype=np.float32).reshape(1, -1)
+        elif isinstance(flow_features, np.ndarray):
+            vec = flow_features.reshape(1, -1)
         else:
-            x_arr = pd.DataFrame(
-                np.array(x_row).reshape(1, -1), columns=self.feature_names
-            )
+            vec = np.array(flow_features, dtype=np.float32).reshape(1, -1)
 
-        pred_enc  = self.predict(x_arr)[0]
-        proba     = self.predict_proba(x_arr)[0]
-        pred_lbl  = self.encoder.inverse_transform([pred_enc])[0]
-        confidence = float(proba[pred_enc])
+        probs = self.predict_proba(vec)[0]
+        pred_idx = int(np.argmax(probs))
+        pred_class = str(self.encoder.inverse_transform([pred_idx])[0])
+        prob = float(probs[pred_idx])
 
         class_probabilities = {
-            cls: float(p)
-            for cls, p in zip(self.encoder.classes_, proba)
+            str(cls_name): round(float(p), 4)
+            for cls_name, p in zip(self.encoder.classes_, probs)
         }
 
+        is_alert = (pred_class != "Benign")
+
         return {
-            "prediction":         pred_lbl,
-            "confidence":         confidence,
-            "encoded_label":      int(pred_enc),
+            "model": self.model_type,
+            "predicted_class": pred_class,
+            "probability": round(prob, 4),
             "class_probabilities": class_probabilities,
+            "is_alert": is_alert,
         }

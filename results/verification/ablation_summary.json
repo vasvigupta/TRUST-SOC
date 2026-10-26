@@ -1,0 +1,225 @@
+{
+  "baseline_fpr": 0.012388888888888889,
+  "initial_false_alarms": 223,
+  "initial_true_attacks": 12437,
+  "tuned_parameters": {
+    "weights": {
+      "r": 0.3,
+      "s": 0.25,
+      "b": 0.25,
+      "e": 0.2
+    },
+    "confirm_threshold": 0.7,
+    "reduce_threshold": 0.4,
+    "strong_contradiction_threshold": 0.2
+  },
+  "configurations": [
+    {
+      "configuration": "Signal (a) Alone [Rule]",
+      "weights": {
+        "r": 1.0,
+        "s": 0.0,
+        "b": 0.0,
+        "e": 0.0
+      },
+      "false_alarms_initial": 223,
+      "false_alarms_rejected": 167,
+      "false_alarms_surviving_lenient": 56,
+      "false_alarms_surviving_strict": 44,
+      "baseline_fpr": 0.012389,
+      "post_fpr_lenient": 0.003111,
+      "post_fpr_strict": 0.002444,
+      "abs_fpr_reduction_lenient": 0.009278,
+      "rel_fpr_reduction_pct_lenient": 74.89,
+      "true_attacks_initial": 12437,
+      "true_attacks_retained": 12436,
+      "true_attacks_rejected": 1,
+      "attack_recall": 0.9991,
+      "recall_cost_pct": 0.01
+    },
+    {
+      "configuration": "Signal (b) Alone [Statistical]",
+      "weights": {
+        "r": 0.0,
+        "s": 1.0,
+        "b": 0.0,
+        "e": 0.0
+      },
+      "false_alarms_initial": 223,
+      "false_alarms_rejected": 221,
+      "false_alarms_surviving_lenient": 2,
+      "false_alarms_surviving_strict": 0,
+      "baseline_fpr": 0.012389,
+      "post_fpr_lenient": 0.000111,
+      "post_fpr_strict": 0.0,
+      "abs_fpr_reduction_lenient": 0.012278,
+      "rel_fpr_reduction_pct_lenient": 99.1,
+      "true_attacks_initial": 12437,
+      "true_attacks_retained": 4101,
+      "true_attacks_rejected": 8336,
+      "attack_recall": 0.3295,
+      "recall_cost_pct": 66.97
+    },
+    {
+      "configuration": "Signal (c) Alone [Behavioural]",
+      "weights": {
+        "r": 0.0,
+        "s": 0.0,
+        "b": 1.0,
+        "e": 0.0
+      },
+      "false_alarms_initial": 223,
+      "false_alarms_rejected": 217,
+      "false_alarms_surviving_lenient": 6,
+      "false_alarms_surviving_strict": 0,
+      "baseline_fpr": 0.012389,
+      "post_fpr_lenient": 0.000333,
+      "post_fpr_strict": 0.0,
+      "abs_fpr_reduction_lenient": 0.012056,
+      "rel_fpr_reduction_pct_lenient": 97.31,
+      "true_attacks_initial": 12437,
+      "true_attacks_retained": 11373,
+      "true_attacks_rejected": 1064,
+      "attack_recall": 0.9137,
+      "recall_cost_pct": 8.55
+    },
+    {
+      "configuration": "Signal (d) Alone [Explanation]",
+      "weights": {
+        "r": 0.0,
+        "s": 0.0,
+        "b": 0.0,
+        "e": 1.0
+      },
+      "false_alarms_initial": 223,
+      "false_alarms_rejected": 151,
+      "false_alarms_surviving_lenient": 72,
+      "false_alarms_surviving_strict": 3,
+      "baseline_fpr": 0.012389,
+      "post_fpr_lenient": 0.004,
+      "post_fpr_strict": 0.000167,
+      "abs_fpr_reduction_lenient": 0.008389,
+      "rel_fpr_reduction_pct_lenient": 67.71,
+      "true_attacks_initial": 12437,
+      "true_attacks_retained": 11517,
+      "true_attacks_rejected": 920,
+      "attack_recall": 0.9253,
+      "recall_cost_pct": 7.39
+    },
+    {
+      "configuration": "Leave-One-Out: Without (a) [s + b + e]",
+      "weights": {
+        "r": 0.0,
+        "s": 0.333,
+        "b": 0.333,
+        "e": 0.334
+      },
+      "false_alarms_initial": 223,
+      "false_alarms_rejected": 220,
+      "false_alarms_surviving_lenient": 3,
+      "false_alarms_surviving_strict": 0,
+      "baseline_fpr": 0.012389,
+      "post_fpr_lenient": 0.000167,
+      "post_fpr_strict": 0.0,
+      "abs_fpr_reduction_lenient": 0.012222,
+      "rel_fpr_reduction_pct_lenient": 98.65,
+      "true_attacks_initial": 12437,
+      "true_attacks_retained": 11064,
+      "true_attacks_rejected": 1373,
+      "attack_recall": 0.8889,
+      "recall_cost_pct": 11.03
+    },
+    {
+      "configuration": "Leave-One-Out: Without (b) [r + b + e]",
+      "weights": {
+        "r": 0.333,
+        "s": 0.0,
+        "b": 0.333,
+        "e": 0.334
+      },
+      "false_alarms_initial": 223,
+      "false_alarms_rejected": 179,
+      "false_alarms_surviving_lenient": 44,
+      "false_alarms_surviving_strict": 0,
+      "baseline_fpr": 0.012389,
+      "post_fpr_lenient": 0.002444,
+      "post_fpr_strict": 0.0,
+      "abs_fpr_reduction_lenient": 0.009944,
+      "rel_fpr_reduction_pct_lenient": 80.27,
+      "true_attacks_initial": 12437,
+      "true_attacks_retained": 12423,
+      "true_attacks_rejected": 14,
+      "attack_recall": 0.9981,
+      "recall_cost_pct": 0.11
+    },
+    {
+      "configuration": "Leave-One-Out: Without (c) [r + s + e]",
+      "weights": {
+        "r": 0.333,
+        "s": 0.333,
+        "b": 0.0,
+        "e": 0.334
+      },
+      "false_alarms_initial": 223,
+      "false_alarms_rejected": 179,
+      "false_alarms_surviving_lenient": 44,
+      "false_alarms_surviving_strict": 0,
+      "baseline_fpr": 0.012389,
+      "post_fpr_lenient": 0.002444,
+      "post_fpr_strict": 0.0,
+      "abs_fpr_reduction_lenient": 0.009944,
+      "rel_fpr_reduction_pct_lenient": 80.27,
+      "true_attacks_initial": 12437,
+      "true_attacks_retained": 11800,
+      "true_attacks_rejected": 637,
+      "attack_recall": 0.948,
+      "recall_cost_pct": 5.12
+    },
+    {
+      "configuration": "Leave-One-Out: Without (d) [r + s + b]",
+      "weights": {
+        "r": 0.333,
+        "s": 0.333,
+        "b": 0.334,
+        "e": 0.0
+      },
+      "false_alarms_initial": 223,
+      "false_alarms_rejected": 220,
+      "false_alarms_surviving_lenient": 3,
+      "false_alarms_surviving_strict": 0,
+      "baseline_fpr": 0.012389,
+      "post_fpr_lenient": 0.000167,
+      "post_fpr_strict": 0.0,
+      "abs_fpr_reduction_lenient": 0.012222,
+      "rel_fpr_reduction_pct_lenient": 98.65,
+      "true_attacks_initial": 12437,
+      "true_attacks_retained": 11976,
+      "true_attacks_rejected": 461,
+      "attack_recall": 0.9622,
+      "recall_cost_pct": 3.7
+    },
+    {
+      "configuration": "Full Mechanism (Fused 4 Signals)",
+      "weights": {
+        "r": 0.3,
+        "s": 0.25,
+        "b": 0.25,
+        "e": 0.2
+      },
+      "false_alarms_initial": 223,
+      "false_alarms_rejected": 220,
+      "false_alarms_surviving_lenient": 3,
+      "false_alarms_surviving_strict": 0,
+      "baseline_fpr": 0.012389,
+      "post_fpr_lenient": 0.000167,
+      "post_fpr_strict": 0.0,
+      "abs_fpr_reduction_lenient": 0.012222,
+      "rel_fpr_reduction_pct_lenient": 98.65,
+      "true_attacks_initial": 12437,
+      "true_attacks_retained": 12149,
+      "true_attacks_rejected": 288,
+      "attack_recall": 0.9761,
+      "recall_cost_pct": 2.31
+    }
+  ]
+}

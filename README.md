@@ -1,142 +1,355 @@
-# TRUST-SOC
-## Trust-Aware, Verification-Driven Detection Pipeline for Security Operations Centers
+# TRUST-SOC: A Trust-Aware, Verification-Driven Detection Pipeline for Security Operations Centers
 
-> **BTech CSE Micro-Project — First Review Prototype**  
-> **Detection Agent**: Random Forest baseline & XGBoost alternative | **Dataset**: CICIDS2017  
-> **Explainability**: SHAP | **Backend / API**: FastAPI | **Data Store**: SQLite | **Reports**: ReportLab PDF  
-> **Dashboard**: React.js + Chart.js (Light Theme) | **Docs & Analysis**: Jupyter Notebooks
+> **BTech CSE Micro-Project — Milestones 1 & 2 Deliverables**  
+> **Team**: Madhav Bhardwaj, Vasvi Gupta, Anushka Saxena  
+> **Project Guide**: Mr. Mohit Tiwari  
+> **Institution**: Bharati Vidyapeeth's College of Engineering (BVCOE), New Delhi  
 
 ---
 
-## 1. System Architecture
+## 1. Project Overview & Problem Statement
+
+Modern Security Operations Centers (SOCs) face overwhelming **alert fatigue**. Analysts are inundated with thousands of security events per day, the majority of which are false alarms. Traditional Machine Learning Intrusion Detection Systems (IDS) suffer from five core deficiencies:
+
+1. **No second line of defence against false positives**: Standalone classifiers lack independent verification.
+2. **Opaque verdicts**: Alerts output an attack label and probability, but fail to provide semantic, verifiable explanations.
+3. **No audit trail linking alerts to evidence**: Raw packet/flow evidence is separated from the triage decision.
+4. **No confidence-based prioritisation**: Alerts lack fused scoring that incorporates context and multi-signal corroboration.
+5. **Lack of operational interfaces**: Academic IDS research rarely integrates with usable, accessible SOC dashboards.
+
+**TRUST-SOC** introduces a four-step pipeline:
+```text
+DETECT  ──►  VERIFY  ──►  EXPLAIN  ──►  PRIORITIZE
+```
+
+**Primary Success Metric of the Project:**
+> Measurable reduction in False-Positive Rate (FPR) after independent verification, compared with the Detection Agent baseline alone — reported as absolute and percentage reductions alongside the measured recall cost.
+
+---
+
+## 2. End-to-End Pipeline Architecture (Milestones 1 & 2)
 
 ```text
-CICIDS2017 Network Flows (Historical & Stream Simulator)
-           │
-           ▼
-[ Preprocessing Pipeline ]  (Clean, Scale, Stratify, 6-Class Mapping)
-           │
-           ▼
-[ Detection Agent ]  (Random Forest Classifier + XGBoost Alternative)
-           │
-           ▼
-[ Explainability Engine ]  (SHAP TreeExplainer Feature Attributions)
-           │
-           ▼
-[ SQLite Persistence & ReportLab PDF Engine ]  (trust_soc.db & Evidentiary PDF)
-           │
-           ▼
-[ FastAPI Backend REST API ]  (Port 8000)
-           ▲
-           │ JSON REST / Event Stream
-           ▼
-[ React.js + Chart.js Dashboard ]  (Port 5173 / 3000, Clean Light Theme)
+CICIDS2017 (TrafficLabelling / GeneratedLabelledFlows CSVs)
+              │
+              ▼
+[1] Dataset Exploration & Quality Audit (Stage 1.1)
+              │
+              ▼
+[2] Preprocessing & Stratification (Stage 1.3)
+    (Leakage-free, Median Imputer + StandardScaler fit on Train only)
+              │
+              ▼
+[3] Detection Agent (Stage 1.4 & 1.6)
+    (Random Forest Baseline | XGBoost Switchable Alternative)
+              │  Predictions + Raw Probability p_d
+              ▼
+[4] Explainability Engine (Stage 1.7)
+    (SHAP TreeExplainer Top-k Feature Attributions)
+              │  Predictions + Top Features
+              ▼
+[5] Verification Agent — CORE TRUST MECHANISM (Stage 2.1–2.6)
+     ├─ (a) Rule / context corroboration (r)
+     ├─ (b) Statistical corroboration via Isolation Forest (s)
+     ├─ (c) Behavioural baseline check with causal sliding window (b)
+     └─ (d) Explanation-consistency check via SHAP semantic alignment (e)
+              │  Agreement score p_v = 0.30r + 0.25s + 0.25b + 0.20e
+              ▼
+        CONFIRM  │  REDUCE  │  REJECT
+              │
+              ▼
+[6] Canonical Log Replay & Audit Feed (Stage 1.8 & 2.6)
+    (Python generator + queue.Queue -> Canonical Alert Schema with full audit trail)
 ```
 
 ---
 
-## 2. Technology Stack Mapping
+## 3. Technology Stack (Locked)
 
-| Layer | Technology | Role & Purpose |
+| Component | Technology | Purpose |
 |---|---|---|
-| **Programming Language** | Python 3.11 | Core implementation for all agents, pipelines, and APIs |
-| **Data Handling** | Pandas, NumPy | Dataset loading, cleaning, feature transformation, statistics |
-| **Machine Learning** | scikit-learn, XGBoost | Detection Agent classification & Isolation Forest stub |
-| **Explainability** | SHAP | Feature-attribution for Detection Agent verdicts |
-| **Log Ingestion / Streaming** | Python generator / queue simulator | Controlled-rate replay of historical flows as simulated live stream |
-| **Backend / API** | FastAPI + Uvicorn | High-performance REST endpoints serving predictions, alerts & metrics |
-| **Data Store** | SQLite (`trust_soc.db`) | Relational persistence of generated alerts, timestamps & states |
-| **Report Generation** | ReportLab | Programmatic generation of evidence-linked PDF reports per alert |
-| **Dashboard / Frontend** | React.js + Chart.js | Modern SOC dashboard: alert feed, live detection, charts & replay |
-| **Datasets** | CICIDS2017 | Multi-class intrusion detection dataset mapped to 6 canonical classes |
-| **Docs & Experimentation** | Jupyter Notebooks | Interactive step-by-step notebooks (Exploration, Preprocessing, Detection, SHAP) |
+| **Language** | Python 3.13 | Core detection agents, verification signals, pipeline, and CLI |
+| **Data Handling** | Pandas, NumPy | Chunked loading, cleaning, feature engineering |
+| **Machine Learning** | scikit-learn, XGBoost | Random Forest baseline, XGBoost alternative; Isolation Forest anomaly model |
+| **Explainability** | SHAP (`shap.TreeExplainer`) | Fast, exact Shapley feature attributions |
+| **Streaming / Ingestion** | Python generator + `queue.Queue` | Memory-bounded, Kafka-compatible replay |
+| **Testing** | stdlib `unittest` | Formal automated test suite (28 tests) |
+| **Storage / DB** | SQLite (`trust_soc.db`) | Relational persistence of alerts and reports |
+| **Optional UI** | Streamlit (`.streamlit/config.toml`) | Light-theme prototype interface |
 
 ---
 
-## 3. Project Structure
+## 4. Light Theme Design Tokens
+
+TRUST-SOC enforces a clean, accessible **light theme** everywhere (visualizations, UI, and future PDF reports):
 
 ```text
-TRUST-SOC/
-├── data/
-│   ├── raw/CICIDS2017/          # Primary raw CSV files
-│   ├── processed/               # Leakage-free train/val/test parquet splits
-│   └── sample/                  # Stream replay sample
-├── notebooks/                   # Jupyter Notebooks for analysis & audit
-│   ├── 01_data_exploration.ipynb
-│   ├── 02_preprocessing.ipynb
-│   ├── 03_detection_agent.ipynb
-│   └── 04_shap_analysis.ipynb
-├── src/
-│   ├── api/                     # FastAPI REST API
-│   │   ├── routes/              # /detect, /alerts, /metrics, /reports
-│   │   ├── schemas.py           # Pydantic models
-│   │   └── main.py              # Application factory & CORS
-│   ├── config/config.py         # Centralized hyperparameters & paths
-│   ├── database/                # SQLite connection & CRUD operations
-│   │   ├── db.py
-│   │   └── alert_store.py
-│   ├── detection/               # Detection Agent (RF & XGBoost)
-│   │   ├── model.py
-│   │   ├── train.py
-│   │   └── predict.py
-│   ├── explainability/          # SHAP TreeExplainer module
-│   │   └── shap_explainer.py
-│   ├── ingestion/               # Log replay streaming engine
-│   │   └── log_replay.py
-│   ├── preprocessing/           # Data cleaning & stratified split
-│   │   └── preprocess.py
-│   ├── reporting/               # ReportLab PDF evidence generator
-│   │   └── pdf_report.py
-│   └── verification/            # Verification Agent extension stub
-│       └── verification_agent.py
-├── frontend/                    # React.js + Chart.js Dashboard (Vite)
-│   ├── src/
-│   │   ├── components/          # MetricsBar, AlertCard, FeatureChart
-│   │   ├── pages/               # Dashboard, Detection, Alerts, Replay
-│   │   ├── api.js               # Axios client
-│   │   └── App.jsx
-│   └── package.json
-├── models/                      # Saved trained models (.joblib)
-├── results/                     # Baseline evaluation metrics, confusion matrix & SHAP
-├── tests/                       # Pytest test suite (35 tests passing)
-├── trust_soc.db                 # SQLite database file
-├── run.py                       # CLI master runner
-└── requirements.txt
+--bg            #F7F9FC   Page background
+--surface       #FFFFFF   Cards, tables, surfaces
+--border        #D9E0EA   Dividers and borders
+--text          #1F2937   Primary dark body text (WCAG AA compliant)
+--text-muted    #5B6676   Secondary / metadata text
+--primary       #1F3864   Deep navy (matches synopsis headers)
+--primary-soft  #E8EEF8   Soft navy container tint
+--accent        #2F6FB3   Interactive blue accent
+
+Confidence Bands:
+--high          #B42318   (red)    Label "HIGH"
+--medium        #B54708   (amber)  Label "MEDIUM"
+--low           #2E7D5B   (green)  Label "LOW"
+
+Verification Decisions:
+CONFIRM         #1F6F43   (forest green)  Verified attack alert
+REDUCE          #B54708   (amber)         Partial agreement / suspicious
+REJECT          #5B6676   (muted grey)    Verified false positive dropped
 ```
 
 ---
 
-## 4. Quickstart: Running the System
+## 5. Milestone 2: Verification Agent & The Trust Mechanism
 
-### Step 1: Install Dependencies
+The Verification Agent serves as a genuinely independent second opinion, rejecting false positives generated by ML detection agents while maintaining attack recall.
+
+### 5.1 The Four Independent Signals
+
+Every signal operates independently, returns a float in $[0, 1]$ ($1 = \text{corroborates attack}, 0 = \text{contradicts}$), flags strong contradictions ($< 0.20$), and **never inspects ground truth or the detection probability $p_d$**:
+
+1. **Signal (a) Rule / Context Corroboration ($r$)**:
+   - Matches target ports against expected attack signatures (e.g., FTP 21 / SSH 22 for Brute Force, Web 80/443/8080 for Web Attack / DoS).
+   - Maps to MITRE ATT&CK techniques (T1498, T1046, T1110, T1190, T1071).
+   - Checks asset criticality inventory (`192.168.10.50` Ubuntu Web Server, `192.168.10.3` Domain Controller).
+   - Enforces infrastructure whitelists (penalizes alerts on normal DNS queries).
+
+2. **Signal (b) Statistical Corroboration ($s$)**:
+   - `IsolationForest` trained **strictly on Benign training traffic only**.
+   - Anomaly score calibrated against benign training split percentiles ($q_{01}, q_{95}$).
+   - Assigns low scores ($< 0.20$) to traffic conforming to the benign manifold, directly identifying statistical false alarms.
+
+3. **Signal (c) Behavioural Baseline Check ($b$)**:
+   - Host-level baseline profiles (mean and std of packet rate, byte volume, duration, packet length) computed from benign training traffic across 151 frequent hosts with a global fallback.
+   - Maintains a **causal rolling window** (bounded deque, max depth 50) per host.
+   - Computes flow and burst deviations; updates rolling state strictly **after** scoring to prevent future data leakage.
+
+4. **Signal (d) Explanation Consistency Check ($e$)**:
+   - Maps top-k SHAP attribution features to domain knowledge feature families defined in `src/config/rules.json`.
+   - Computes the ratio of attribution mass aligned with attack physics (e.g., packet rate/duration for DoS vs. flags/segment sizes).
+   - Contradicts alerts where predictions are driven by spurious artifacts.
+
+### 5.2 Formal Decision Table
+
+Agreement score:
+$$p_v = 0.30\,r + 0.25\,s + 0.25\,b + 0.20\,e$$
+
+| Decision | Condition | Operational Effect |
+|---|---|---|
+| **CONFIRM** | $p_v \ge 0.70$ and 0 signals strongly contradictory ($< 0.20$) | Alert validated; passes to composite confidence scoring at full weight |
+| **REDUCE** | $0.40 \le p_v < 0.70$, or 1 signal strongly contradictory | Retained but flagged "Suspicious — Needs Review" for analyst triage |
+| **REJECT** | $p_v < 0.40$, or $\ge 2$ signals strongly contradictory ($< 0.20$) | Verified false alarm; dropped from escalation and logged with evidence |
+
+---
+
+## 6. Primary Success Metric Results (Frozen Test Set)
+
+Evaluated strictly once on the held-out test split (30,448 flows: 18,001 benign, 12,447 attack):
+
+| Evaluation Metric | Standalone Detection Agent (Baseline) | Post-Verification (Lenient: Conf+Red) | Post-Verification (Strict: Confirm Only) |
+|---|:---:|:---:|:---:|
+| **False Alarms (on Benign Traffic)** | **247** | **3** | **0** |
+| **False Positive Rate (FPR)** | **1.3721%** | **0.0167%** | **0.0000%** |
+| **Absolute FPR Reduction** | — | **1.3555 percentage points** | **1.3721 percentage points** |
+| **Relative FPR Reduction (%)** | — | **98.79%** | **100.00%** |
+| **True Attacks Retained** | 12,435 | 12,137 | 4,573 |
+| **Recall Cost** | — | **2.39%** | 63.26% |
+| **Cohen's Kappa Agreement** | — | **0.608** | — |
+
+### Per-Class False Alarm Breakdown (Frozen Test Set)
+
+| Predicted Class | Baseline False Alarms | Rejected False Alarms | FA Reduction (%) | Baseline Attack Alerts | Attacks Retained | Retention Rate (%) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Botnet** | 217 | 217 | **100.0%** | 293 | 5 | 1.71% |
+| **Brute Force** | 9 | 9 | **100.0%** | 2,073 | 2,063 | **99.52%** |
+| **DoS/DDoS** | 6 | 3 | **50.0%** | 5,999 | 5,999 | **100.00%** |
+| **Port Scan** | 0 | 0 | **100.0%** | 3,748 | 3,748 | **100.00%** |
+| **Web Attack** | 15 | 15 | **100.0%** | 322 | 322 | **100.00%** |
+| **Total** | **247** | **244** | **98.79%** | **12,435** | **12,137** | **97.60%** |
+
+> **Scientific Honesty Note on Recall Cost**: The 2.39% recall cost is driven almost exclusively by Botnet traffic in CICIDS2017 (Ares keepalive packets), which closely mimic benign beaconing. For all other attack classes (DoS, Port Scan, Web Attack, Brute Force), attack retention is **99.5% to 100.0%**.
+
+---
+
+## 7. Validation Split Ablation Study
+
+Evaluated across 12,660 validation alerts (223 baseline false alarms, 12,437 true attacks):
+
+| Configuration | FA Rejected | FA Remaining (Lenient) | Post FPR (Lenient) | Rel FPR Reduction (%) | Attacks Retained | Recall Cost (%) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Signal (a) Alone [Rule]** | 167 | 56 | 0.311% | **74.9%** | 12,436 | 0.01% |
+| **Signal (b) Alone [Statistical]** | 221 | 2 | 0.011% | **99.1%** | 4,101 | 66.97% |
+| **Signal (c) Alone [Behavioural]** | 217 | 6 | 0.033% | **97.3%** | 11,373 | 8.55% |
+| **Signal (d) Alone [Explanation]** | 151 | 72 | 0.400% | **67.7%** | 11,517 | 7.39% |
+| **Leave-One-Out: Without (a)** | 220 | 3 | 0.017% | **98.7%** | 11,064 | 11.03% |
+| **Leave-One-Out: Without (b)** | 179 | 44 | 0.244% | **80.3%** | 12,423 | 0.11% |
+| **Leave-One-Out: Without (c)** | 179 | 44 | 0.244% | **80.3%** | 11,800 | 5.12% |
+| **Leave-One-Out: Without (d)** | 220 | 3 | 0.017% | **98.7%** | 11,976 | 3.70% |
+| **Full Fused Mechanism (a+b+c+d)** | **220** | **3** | **0.017%** | **98.7%** | **12,149** | **2.31%** |
+
+---
+
+## 8. Canonical Alert Schema Contract (Section 5)
+
+Every replayed and verified flow produces a compliant Canonical Alert dictionary:
+
+```json
+{
+  "schema_version": "1.0",
+  "alert_id": "alert-b8f2c3d4:42",
+  "ingested_at": "2026-10-26T21:12:00Z",
+  "flow": {
+    "source_file": "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
+    "row_index": 42,
+    "fields_available": {
+      "Source IP": "172.16.0.1",
+      "Destination IP": "192.168.10.50",
+      "Source Port": 49812,
+      "Destination Port": 80,
+      "Protocol": 6,
+      "Timestamp": "07/07/2017 01:00:00"
+    },
+    "features": { "Flow Duration": 48.0, "Flow Packets/s": 41666.67, ... }
+  },
+  "detection": {
+    "model": "random_forest",
+    "predicted_class": "Port Scan",
+    "probability": 0.98,
+    "class_probabilities": { "Port Scan": 0.98, "Benign": 0.02, ... },
+    "top_features": [
+      { "rank": 1, "feature": "Flow Duration", "shap_value": 0.38, "feature_value": 48.0 }
+    ],
+    "is_alert": true
+  },
+  "verification": {
+    "decision": "CONFIRM",
+    "p_v": 0.8425,
+    "signals": {
+      "rule": { "score": 0.90, "strongly_contradictory": false, "details": { ... } },
+      "statistical": { "score": 0.82, "strongly_contradictory": false, "details": { ... } },
+      "behavioural": { "score": 0.78, "strongly_contradictory": false, "details": { ... } },
+      "explanation": { "score": 0.88, "strongly_contradictory": false, "details": { ... } }
+    },
+    "rationale": "Decision CONFIRM (agreement p_v=0.842). Strong multi-signal consensus corroborates attack..."
+  },
+  "scoring": { "composite": 0.0, "band": "LOW" },
+  "audit_trail": [
+    { "ts": "...", "stage": "ingestion", "event": "Flow record ingested and schema initialized" },
+    { "ts": "...", "stage": "detection", "event": "Classified as Port Scan (p=0.98)" },
+    { "ts": "...", "stage": "verification", "event": "Verification completed: CONFIRM (p_v=0.8425)" }
+  ],
+  "ground_truth": { "original_label": "PortScan", "project_class": "Port Scan", "is_attack": true }
+}
+```
+
+---
+
+## 9. How to Run the Project
+
+### Prerequisites
+- Python 3.11+ (tested on Python 3.13)
+- Dependencies installed from `requirements.txt`:
 ```bash
 pip install -r requirements.txt
-cd frontend && npm install && cd ..
 ```
 
-### Step 2: Run Backend Pipeline & Start FastAPI
+### CLI Subcommands
+Execute any stage via the master `run.py` CLI:
+
 ```bash
-# Execute ML pipeline (preprocessing, training, evaluation, SHAP)
-python run.py --stage all
+# 1. Dataset exploration & data quality audit
+python run.py explore
 
-# Start FastAPI server on http://localhost:8000
-python run.py --stage api
-```
-Interactive API docs available at: `http://localhost:8000/docs`
+# 2. Preprocess data, clean, and create stratified splits
+python run.py preprocess
 
-### Step 3: Start React.js Dashboard
-In another terminal:
-```bash
-cd frontend
-npm run dev
+# 3. Train the Random Forest Detection Agent baseline
+python run.py train
+
+# 4. Evaluate baseline metrics & alert-level FPR on held-out test split
+python run.py evaluate
+
+# 5. Run SHAP global and per-prediction explainability analysis
+python run.py explain
+
+# 6. Run live flow-by-flow Log Replay simulation with Verification Agent
+python run.py replay
+
+# 7. Evaluate Verification Agent & measure FPR reduction on frozen test split
+python run.py verify
+
+# 8. Run full automated standard-library unit test suite (28 tests)
+python -m unittest discover -s tests -v
+
+# 9. Launch optional Streamlit demo UI (light theme)
+streamlit run app/streamlit_app.py
 ```
-Open **`http://localhost:5173`** (or port specified in terminal) in your browser.
 
 ---
 
-## 5. Verification Agent Extension Contract
+## 10. Automated Test Suite
 
-As required for this prototype stage:
-- **Detection Agent**: Random Forest baseline is fully trained, evaluated, and explained with SHAP.
-- **Verification Agent**: Exists as an architecturally clean extension stub (`src/verification/verification_agent.py`) returning `NOT_IMPLEMENTED`.
-- Evaluation metrics explicitly represent the unverified Detection Agent baseline for comparison in Phase 2.
+Standard library `unittest` suite passing 100% of tests (28/28):
+
+```text
+test_detect_single_flow_interface (tests.test_detection)                 ... ok
+test_model_loaded (tests.test_detection)                                 ... ok
+test_predict_proba_sums_to_one (tests.test_detection)                    ... ok
+test_predict_shape_and_classes (tests.test_detection)                    ... ok
+test_shap_reconstruction_consistency (tests.test_explainability)         ... ok
+test_single_flow_explanation_contract (tests.test_explainability)        ... ok
+test_artifacts_exist (tests.test_preprocessing)                          ... ok
+test_imputer_and_scaler_fitted (tests.test_preprocessing)                ... ok
+test_label_mapping (tests.test_preprocessing)                            ... ok
+test_no_target_leakage_columns (tests.test_preprocessing)                ... ok
+test_split_dimensions_and_no_leakage (tests.test_preprocessing)          ... ok
+test_next_n_returns_exact_count (tests.test_replay)                      ... ok
+test_next_returns_valid_alert (tests.test_replay)                        ... ok
+test_rate_adjustment (tests.test_replay)                                 ... ok
+test_schema_rejects_invalid_probability (tests.test_schema_and_isolation) ... ok
+test_schema_rejects_missing_keys (tests.test_schema_and_isolation)        ... ok
+test_strict_ground_truth_isolation (tests.test_schema_and_isolation)     ... ok
+test_valid_alert_schema (tests.test_schema_and_isolation)                ... ok
+test_confirm_decision (tests.test_verification)                          ... ok
+test_reduce_decision_partial_disagreement (tests.test_verification)      ... ok
+test_reject_decision_multiple_contradictions (tests.test_verification)   ... ok
+test_reject_decision_score_below_threshold (tests.test_verification)     ... ok
+test_ground_truth_isolation (tests.test_verification)                   ... ok
+test_behavioural_signal_causal_integrity (tests.test_verification)       ... ok
+test_explanation_signal_contract_and_bounds (tests.test_verification)   ... ok
+test_rule_signal_contract_and_bounds (tests.test_verification)          ... ok
+test_rule_signal_whitelisted_dns_contradiction (tests.test_verification) ... ok
+test_statistical_signal_contract_and_bounds (tests.test_verification)   ... ok
+
+Ran 28 tests in 1.514s — OK (All tests passing)
+```
+
+---
+
+## 11. Milestone 2 Exit Gate Checklist
+
+- [x] All 4 verification signals implemented with strict contract adherence ($[0, 1]$, strong contradiction flag, details dict).
+- [x] Zero inspection of `ground_truth` by any signal or verification agent method (verified by unit test).
+- [x] Strict independence: signals $r, s, b$ form their opinions without inspecting $p_d$.
+- [x] Isolation Forest trained strictly on benign training flows only.
+- [x] Host behavioural baselines built from benign training traffic only; rolling window causally respects time.
+- [x] Decision table matches Section 4.2: CONFIRM, REDUCE, REJECT.
+- [x] Deterministic rationale generated from signal consensus/discordance templates.
+- [x] Signal weights and thresholds tuned exclusively on the Validation split.
+- [x] Full ablation study executed and documented (`ablation_summary.json` and `ablation_report.md`).
+- [x] Frozen test split evaluated strictly once with verified primary success metric:
+  - Baseline FPR: **1.3721%** (247 false alarms)
+  - Post-Verification Lenient FPR: **0.0167%** (3 false alarms)
+  - **Relative FPR Reduction: 98.79%**
+  - **Absolute FPR Reduction: 1.3555 percentage points**
+  - Recall Cost: **2.3942%**
+  - Cohen's Kappa: **0.608**
+- [x] Light-theme comparative visualization saved to `results/verification/fpr_reduction.png`.
+- [x] CLI entry point `python run.py verify` operational.
+- [x] 100% of unit tests passing in stdlib `unittest` (28/28).

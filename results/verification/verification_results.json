@@ -1,0 +1,96 @@
+{
+  "dataset": "CICIDS2017 Frozen Test Split",
+  "total_test_flows": 30448,
+  "total_benign_flows": 18001,
+  "total_attack_flows": 12447,
+  "parameters": {
+    "weights": {
+      "r": 0.3,
+      "s": 0.25,
+      "b": 0.25,
+      "e": 0.2
+    },
+    "confirm_threshold": 0.7,
+    "reduce_threshold": 0.4,
+    "strong_contradiction_threshold": 0.2
+  },
+  "baseline": {
+    "alerts_emitted": 12682,
+    "false_alarms": 247,
+    "baseline_fpr": 0.013721,
+    "baseline_fpr_pct": 1.3721,
+    "attack_alerts": 12435,
+    "baseline_recall": 0.999036,
+    "baseline_recall_pct": 99.9036
+  },
+  "post_verification_lenient": {
+    "surviving_false_alarms": 3,
+    "rejected_false_alarms": 244,
+    "post_fpr": 0.000167,
+    "post_fpr_pct": 0.0167,
+    "absolute_fpr_reduction": 0.013555,
+    "absolute_fpr_reduction_pct_pts": 1.3555,
+    "relative_fpr_reduction_pct": 98.79,
+    "retained_attacks": 12137,
+    "rejected_attacks": 298,
+    "post_recall": 0.975094,
+    "post_recall_pct": 97.5094,
+    "recall_cost_pct": 2.3942,
+    "cohens_kappa": 0.608
+  },
+  "post_verification_strict": {
+    "surviving_false_alarms": 0,
+    "post_fpr": 0.0,
+    "post_fpr_pct": 0.0,
+    "absolute_fpr_reduction": 0.013721,
+    "absolute_fpr_reduction_pct_pts": 1.3721,
+    "relative_fpr_reduction_pct": 100.0
+  },
+  "verification_decision_counts": {
+    "CONFIRM": 4573,
+    "REDUCE": 7567,
+    "REJECT": 542
+  },
+  "class_breakdown": {
+    "Botnet": {
+      "false_alarms_total": 217,
+      "false_alarms_rejected": 217,
+      "false_alarms_reduction_pct": 100.0,
+      "attacks_total": 293,
+      "attacks_rejected": 288,
+      "attack_retention_pct": 1.71
+    },
+    "Brute Force": {
+      "false_alarms_total": 9,
+      "false_alarms_rejected": 9,
+      "false_alarms_reduction_pct": 100.0,
+      "attacks_total": 2073,
+      "attacks_rejected": 10,
+      "attack_retention_pct": 99.52
+    },
+    "DoS/DDoS": {
+      "false_alarms_total": 6,
+      "false_alarms_rejected": 3,
+      "false_alarms_reduction_pct": 50.0,
+      "attacks_total": 5999,
+      "attacks_rejected": 0,
+      "attack_retention_pct": 100.0
+    },
+    "Port Scan": {
+      "false_alarms_total": 0,
+      "false_alarms_rejected": 0,
+      "false_alarms_reduction_pct": 100.0,
+      "attacks_total": 3748,
+      "attacks_rejected": 0,
+      "attack_retention_pct": 100.0
+    },
+    "Web Attack": {
+      "false_alarms_total": 15,
+      "false_alarms_rejected": 15,
+      "false_alarms_reduction_pct": 100.0,
+      "attacks_total": 322,
+      "attacks_rejected": 0,
+      "attack_retention_pct": 100.0
+    }
+  }
+}

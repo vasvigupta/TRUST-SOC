@@ -1,0 +1,115 @@
+{
+  "description": "Network Verification Rules, Empirical Feature Thresholds, and MITRE ATT&CK Mappings",
+  "classes": {
+    "DoS/DDoS": {
+      "mitre": {
+        "technique_id": "T1498",
+        "technique_name": "Network Denial of Service",
+        "tactic": "Impact"
+      },
+      "rules": {
+        "expected_ports": [80, 443, 8080],
+        "flow_duration_min_us": 500000,
+        "flow_packets_s_extreme": 5000.0,
+        "packet_length_mean_min": 100.0
+      },
+      "expected_feature_families": [
+        "Flow Duration",
+        "Flow Packets/s",
+        "Flow Bytes/s",
+        "IAT",
+        "Subflow",
+        "Packet Length",
+        "Segment Size",
+        "Init_Win_bytes",
+        "min_seg_size"
+      ]
+    },
+    "Port Scan": {
+      "mitre": {
+        "technique_id": "T1046",
+        "technique_name": "Network Service Discovery",
+        "tactic": "Discovery"
+      },
+      "rules": {
+        "flow_duration_max_us": 100000,
+        "total_fwd_packets_max": 3,
+        "flow_packets_s_min": 1000.0
+      },
+      "expected_feature_families": [
+        "Total Fwd Packets",
+        "Total Backward Packets",
+        "Flow Duration",
+        "Packets/s",
+        "Packet Length",
+        "Header Length",
+        "Flag Count",
+        "Init_Win_bytes",
+        "Subflow",
+        "min_seg_size"
+      ]
+    },
+    "Brute Force": {
+      "mitre": {
+        "technique_id": "T1110",
+        "technique_name": "Brute Force",
+        "tactic": "Credential Access"
+      },
+      "rules": {
+        "expected_ports": [21, 22],
+        "total_fwd_packets_min": 3,
+        "flow_duration_min_us": 50000
+      },
+      "expected_feature_families": [
+        "Total Fwd Packets",
+        "Packet Length",
+        "Header Length",
+        "Flow Duration",
+        "IAT",
+        "Init_Win_bytes",
+        "min_seg_size",
+        "Segment Size"
+      ]
+    },
+    "Web Attack": {
+      "mitre": {
+        "technique_id": "T1190",
+        "technique_name": "Exploit Public-Facing Application",
+        "tactic": "Initial Access"
+      },
+      "rules": {
+        "expected_ports": [80, 443, 8080],
+        "flow_duration_min_us": 100000
+      },
+      "expected_feature_families": [
+        "Total Length",
+        "Packet Length",
+        "Segment Size",
+        "Init_Win_bytes",
+        "Flow Duration",
+        "IAT",
+        "min_seg_size"
+      ]
+    },
+    "Botnet": {
+      "mitre": {
+        "technique_id": "T1071",
+        "technique_name": "Application Layer Protocol",
+        "tactic": "Command and Control"
+      },
+      "rules": {
+        "expected_ports": [8080],
+        "known_c2_ips": ["205.174.165.73"],
+        "packet_length_mean_max": 250.0
+      },
+      "expected_feature_families": [
+        "IAT",
+        "Packet Length",
+        "Subflow",
+        "Init_Win_bytes",
+        "min_seg_size",
+        "Flow Duration"
+      ]
+    }
+  }
+}

@@ -1,27 +1,25 @@
-TRUST-SOC Detection Agent — Baseline Classification Report
-============================================================
+=================================================================
+TRUST-SOC DETECTION AGENT BASELINE CLASSIFICATION REPORT
+=================================================================
+
+Model: random_forest
+Test Set Size: 30,448 flows
+
+PRIMARY METRIC â€” Alert-Level FPR: 0.0137 (1.37%)
+Overall Accuracy:                 0.9914
+Macro F1 Score:                   0.9468
+Weighted F1 Score:                0.9923
 
               precision    recall  f1-score   support
 
-      Benign       1.00      1.00      1.00     10500
-      Botnet       1.00      0.99      0.99       150
- Brute Force       1.00      1.00      1.00       600
-    DoS/DDoS       1.00      1.00      1.00      2700
-   Port Scan       1.00      1.00      1.00      2250
-  Web Attack       1.00      0.97      0.99       233
+      Benign     0.9993    0.9863    0.9928     18001
+      Botnet     0.5745    0.9932    0.7280       295
+ Brute Force     0.9952    0.9986    0.9969      2075
+    DoS/DDoS     0.9990    0.9998    0.9994      6000
+   Port Scan     1.0000    0.9995    0.9997      3750
+  Web Attack     0.9496    0.9786    0.9639       327
 
-    accuracy                           1.00     16433
-   macro avg       1.00      0.99      1.00     16433
-weighted avg       1.00      1.00      1.00     16433
+    accuracy                         0.9914     30448
+   macro avg     0.9196    0.9927    0.9468     30448
+weighted avg     0.9944    0.9914    0.9923     30448
 
-
-FPR (per class):
-  Benign                    0.0005
-  Botnet                    0.0000
-  Brute Force               0.0001
-  DoS/DDoS                  0.0004
-  Port Scan                 0.0000
-  Web Attack                0.0000
-
-FPR macro avg:    0.0002
-FPR weighted avg: 0.0004

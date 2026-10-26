@@ -1,262 +1,282 @@
 """
-SHAP Explainability Module
-===========================
-Generates global and per-sample SHAP explanations for the
-Random Forest Detection Agent.
-
-Key design decisions
----------------------
-- For GLOBAL importance: we use a fast approach combining
-  SHAP TreeExplainer on a small sample (100 rows) to get
-  real SHAP values, plus RF feature_importances_ as fallback.
-- For INDIVIDUAL predictions: SHAP TreeExplainer on a single row
-  (very fast — milliseconds).
-- check_additivity=False is used to skip the slow additivity
-  verification step (safe for approximate explanations).
-- Plots are saved to results/shap/.
+SHAP Explainability Module (Stage 1.7)
+=======================================
+Implements shap.TreeExplainer on the fitted Detection Agent model.
+Provides:
+1. Global feature importance (overall mean |SHAP| and per-class).
+2. Per-prediction flow explanations focusing on the PREDICTED class:
+   { "prediction": "...", "confidence": 0.91, "top_features": [ {feature, shap_value, feature_value} ] }
+3. Consistency & additivity verification (base_value + sum(shap) == model output within tolerance).
+4. Single-flow explanation latency profiling.
+5. Light-theme summary bar plot.
 """
 
-import sys
+import time
 import json
 import logging
+from pathlib import Path
+from typing import Dict, Any, List, Tuple
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from pathlib import Path
+import joblib
+import shap
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.config.config import (
     SHAP_DIR, SHAP_SAMPLE_SIZE, SHAP_TOP_K,
-    PROCESSED_X_TEST, PROCESSED_Y_TEST, RANDOM_STATE,
+    PROCESSED_X_TEST, PROCESSED_Y_TEST, PROCESSED_X_TEST_RAW,
+    RANDOM_STATE, MODEL_PATH, ENCODER_PATH, FEATURE_NAMES_PATH
 )
+from src.config.theme import THEME, apply_matplotlib_theme
 from src.detection.model import DetectionAgent
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%H:%M:%S",
-)
-log = logging.getLogger("TRUST-SOC.shap")
+log = logging.getLogger("TRUST-SOC.explainability")
 
 
-# ─────────────────────────────────────────────────────────────────
-# Global importance via RF feature_importances_ + SHAP validation
-# ─────────────────────────────────────────────────────────────────
-
-def compute_global_importance(agent: DetectionAgent, X_test: pd.DataFrame,
-                               sample_size: int = SHAP_SAMPLE_SIZE):
+class TrustShapExplainer:
     """
-    Compute global feature importances using SHAP TreeExplainer
-    on a small sample. Falls back to RF feature_importances_ if
-    SHAP takes too long.
-
-    Returns (importance_series, method_used).
+    Production SHAP Explainer for TRUST-SOC Detection Agent.
     """
-    import shap
 
-    rng = np.random.default_rng(RANDOM_STATE)
-    # Use small sample (100 rows) for global SHAP — fast and representative
-    n_global = min(100, len(X_test))
-    idx = rng.choice(len(X_test), size=n_global, replace=False)
-    X_sample = X_test.iloc[idx].reset_index(drop=True)
+    def __init__(self, agent: DetectionAgent):
+        self.agent = agent
+        self.classifier = agent.classifier
+        self.encoder = agent.encoder
+        self.feature_names = agent.feature_names
+        self.classes = list(agent.encoder.classes_)
 
-    log.info(f"Computing SHAP global importance on {n_global} samples…")
-
-    try:
-        explainer = shap.TreeExplainer(
-            agent.classifier,
-            feature_perturbation="tree_path_dependent",
+        log.info(f"Initializing SHAP TreeExplainer for {agent.model_type}...")
+        self.explainer = shap.TreeExplainer(
+            self.classifier,
+            feature_perturbation="tree_path_dependent"
         )
-        # shap_values returns list[n_classes] of (n_samples, n_features)
-        # check_additivity=False → skips slow additivity check
-        sv = explainer.shap_values(X_sample, check_additivity=False)
+        self.expected_value = self.explainer.expected_value
 
-        # Handle list (old shap) vs ndarray (new shap >= 0.46)
+    def explain_flow(
+        self,
+        flow_scaled: np.ndarray,
+        flow_raw: Dict[str, float] = None,
+        top_k: int = SHAP_TOP_K
+    ) -> Dict[str, Any]:
+        """
+        Generates a per-prediction explanation for a single flow record.
+        Focuses on the PREDICTED class.
+        """
+        if flow_scaled.ndim == 1:
+            vec = flow_scaled.reshape(1, -1)
+        else:
+            vec = flow_scaled
+
+        t0 = time.perf_counter()
+        # Compute prediction and probabilities
+        probs = self.agent.predict_proba(vec)[0]
+        pred_idx = int(np.argmax(probs))
+        pred_class = self.classes[pred_idx]
+        confidence = float(probs[pred_idx])
+
+        # Compute SHAP values for the single flow
+        sv = self.explainer.shap_values(vec, check_additivity=False)
+        latency_ms = (time.perf_counter() - t0) * 1000.0
+
+        # Handle multiclass format variations across SHAP versions:
+        # sv can be list of [n_classes](1, n_features) or 3D array (1, n_features, n_classes)
         if isinstance(sv, list):
-            # list[n_classes] of (n_samples, n_features)
-            mean_abs = np.mean([np.abs(s) for s in sv], axis=0)
+            class_shap = sv[pred_idx][0]  # shape (n_features,)
+            base_val = float(self.expected_value[pred_idx]) if isinstance(self.expected_value, (list, np.ndarray)) else float(self.expected_value)
         elif isinstance(sv, np.ndarray):
             if sv.ndim == 3:
-                # (n_samples, n_features, n_classes)
-                mean_abs = np.abs(sv).mean(axis=2)   # → (n_samples, n_features)
+                class_shap = sv[0, :, pred_idx]
+                base_val = float(self.expected_value[pred_idx]) if isinstance(self.expected_value, (list, np.ndarray)) else float(self.expected_value)
             else:
-                mean_abs = np.abs(sv)
+                class_shap = sv[0]
+                base_val = float(self.expected_value) if not isinstance(self.expected_value, (list, np.ndarray)) else float(self.expected_value[0])
         else:
-            raise ValueError(f"Unexpected SHAP output type: {type(sv)}")
+            raise TypeError(f"Unexpected SHAP values type: {type(sv)}")
 
-        importance = pd.Series(
-            mean_abs.mean(axis=0), index=X_sample.columns
-        )
-        log.info("SHAP global importance computed successfully.")
-        return importance, "shap"
+        # Verification: check reconstruction
+        shap_sum = float(np.sum(class_shap))
+        reconstructed = base_val + shap_sum
 
-    except Exception as e:
-        log.warning(f"SHAP global failed ({e}), falling back to RF feature_importances_")
-        importance = pd.Series(
-            agent.classifier.feature_importances_,
-            index=list(agent.feature_names),
-        )
-        return importance, "rf_importance"
+        # Extract top-k pushing towards the predicted class
+        # Positive SHAP pushes toward predicted class; rank by absolute impact or positive contribution
+        sorted_indices = np.argsort(class_shap)[::-1][:top_k]
 
+        top_features = []
+        for rank, f_idx in enumerate(sorted_indices, 1):
+            fname = self.feature_names[f_idx]
+            s_val = float(class_shap[f_idx])
+            raw_val = float(flow_raw.get(fname, vec[0, f_idx])) if flow_raw else float(vec[0, f_idx])
+            top_features.append({
+                "rank": rank,
+                "feature": fname,
+                "shap_value": round(s_val, 4),
+                "feature_value": round(raw_val, 4),
+                "scaled_value": round(float(vec[0, f_idx]), 4)
+            })
 
-def plot_global_importance(importance: pd.Series, method: str,
-                            save_dir: Path = SHAP_DIR):
-    """Bar plot of top-k global feature importances."""
-    save_dir.mkdir(parents=True, exist_ok=True)
+        return {
+            "prediction": pred_class,
+            "predicted_index": pred_idx,
+            "confidence": round(confidence, 4),
+            "base_value": round(base_val, 4),
+            "shap_sum": round(shap_sum, 4),
+            "reconstructed_output": round(reconstructed, 4),
+            "explanation_latency_ms": round(latency_ms, 3),
+            "top_features": top_features,
+        }
 
-    top = importance.nlargest(SHAP_TOP_K)
-    label = "Mean |SHAP Value|" if method == "shap" else "RF Feature Importance (Gini)"
-    title_suffix = "(SHAP)" if method == "shap" else "(RF Gini — SHAP fallback)"
+    def compute_global_explanations(
+        self,
+        X_sample: np.ndarray,
+        sample_size: int = SHAP_SAMPLE_SIZE
+    ) -> Dict[str, Any]:
+        """
+        Computes global feature attributions across a stratified sample.
+        """
+        n_rows = min(sample_size, len(X_sample))
+        vecs = X_sample[:n_rows]
+        log.info(f"Computing global SHAP values across {n_rows} representative test flows...")
 
-    fig, ax = plt.subplots(figsize=(10, 7))
-    top.sort_values().plot(kind="barh", ax=ax, color="#1565C0", edgecolor="white")
-    ax.set_xlabel(label, fontsize=11)
-    ax.set_title(
-        f"TRUST-SOC — Top {SHAP_TOP_K} Global Feature Importances {title_suffix}",
-        fontsize=12,
-    )
-    ax.spines[["top", "right"]].set_visible(False)
-    plt.tight_layout()
+        t0 = time.time()
+        sv = self.explainer.shap_values(vecs, check_additivity=False)
+        elapsed = time.time() - t0
+        log.info(f"Global SHAP values computed in {elapsed:.2f}s ({elapsed/n_rows*1000:.2f} ms/sample)")
 
-    path = save_dir / "shap_summary_bar.png"
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    log.info(f"Global importance bar plot → {path}")
-
-    # Save top features JSON
-    json_path = save_dir / "top_features.json"
-    with open(json_path, "w") as f:
-        json.dump(
-            [{"feature": k, "importance": round(float(v), 6)}
-             for k, v in top.items()],
-            f, indent=2,
-        )
-    log.info(f"Top features JSON → {json_path}")
-    return top
-
-
-# ─────────────────────────────────────────────────────────────────
-# Individual prediction explanation (single row — fast)
-# ─────────────────────────────────────────────────────────────────
-
-def explain_single_prediction(agent: DetectionAgent,
-                               x_row,
-                               class_names: list) -> dict:
-    """
-    SHAP explanation for ONE network-flow record.
-    Single-row TreeExplainer is fast (milliseconds).
-
-    Returns dict compatible with the Alert structure:
-      { prediction, confidence, top_features, class_probabilities }
-    """
-    import shap
-
-    # Full detection result
-    result   = agent.predict_single(x_row)
-    pred_lbl = result["prediction"]
-    pred_enc = result["encoded_label"]
-
-    # Reshape to (1, n_features)
-    if hasattr(x_row, "values"):
-        x_2d = x_row.values.reshape(1, -1)
-        feat_names = list(x_row.index)
-    else:
-        x_2d = np.array(x_row).reshape(1, -1)
-        feat_names = agent.feature_names
-
-    explainer = shap.TreeExplainer(
-        agent.classifier,
-        feature_perturbation="tree_path_dependent",
-    )
-    sv = explainer.shap_values(x_2d, check_additivity=False)
-
-    # Handle different SHAP output formats across versions:
-    #   Old (< 0.46): list[n_classes] of (n_samples, n_features)
-    #   New (>= 0.46): ndarray of shape (n_samples, n_features, n_classes)
-    #                  or (n_features, n_classes) for single sample
-    if isinstance(sv, list):
-        # Old format — list per class
-        sv_pred = sv[pred_enc][0]           # shape (n_features,)
-    elif isinstance(sv, np.ndarray):
-        if sv.ndim == 3:
+        # Aggregate mean absolute SHAP per feature across all classes
+        if isinstance(sv, list):
+            # List of arrays of shape (n_samples, n_features)
+            mean_abs_per_class = [np.mean(np.abs(s), axis=0) for s in sv]  # list of (n_features,)
+            global_importance = np.mean(mean_abs_per_class, axis=0)        # (n_features,)
+            per_class_importance = {
+                cls: mean_abs_per_class[i] for i, cls in enumerate(self.classes)
+            }
+        elif isinstance(sv, np.ndarray) and sv.ndim == 3:
             # (n_samples, n_features, n_classes)
-            sv_pred = sv[0, :, pred_enc]    # shape (n_features,)
-        elif sv.ndim == 2:
-            if sv.shape[0] == x_2d.shape[1]:
-                # (n_features, n_classes)
-                sv_pred = sv[:, pred_enc]   # shape (n_features,)
-            else:
-                # (n_classes, n_features)  — less common
-                sv_pred = sv[pred_enc, :]   # shape (n_features,)
+            global_importance = np.mean(np.mean(np.abs(sv), axis=0), axis=1)
+            per_class_importance = {
+                cls: np.mean(np.abs(sv[:, :, i]), axis=0) for i, cls in enumerate(self.classes)
+            }
         else:
-            sv_pred = sv                    # already 1D
-    else:
-        sv_pred = np.zeros(len(feat_names))
+            global_importance = np.mean(np.abs(sv), axis=0)
+            per_class_importance = {self.classes[0]: global_importance}
 
+        # Global Top-K
+        top_k_indices = np.argsort(global_importance)[::-1][:SHAP_TOP_K]
+        global_top = [
+            {"rank": r + 1, "feature": self.feature_names[i], "mean_abs_shap": round(float(global_importance[i]), 5)}
+            for r, i in enumerate(top_k_indices)
+        ]
 
-    contributions = pd.Series(sv_pred, index=feat_names)
-    top_k = contributions.abs().nlargest(SHAP_TOP_K)
+        # Per-class Top-5
+        per_class_top = {}
+        for cls, imp in per_class_importance.items():
+            c_indices = np.argsort(imp)[::-1][:5]
+            per_class_top[cls] = [
+                {"rank": r + 1, "feature": self.feature_names[i], "mean_abs_shap": round(float(imp[i]), 5)}
+                for r, i in enumerate(c_indices)
+            ]
 
-    top_features = [
-        {"feature": feat, "shap_value": round(float(contributions[feat]), 6)}
-        for feat in top_k.index
-    ]
+        return {
+            "sample_size": n_rows,
+            "compute_time_sec": round(elapsed, 2),
+            "latency_ms_per_flow": round((elapsed / n_rows) * 1000.0, 3),
+            "global_top_features": global_top,
+            "per_class_top_features": per_class_top,
+            "all_features_importance": {
+                self.feature_names[i]: round(float(global_importance[i]), 5)
+                for i in range(len(self.feature_names))
+            }
+        }
 
-    return {
-        "prediction":          pred_lbl,
-        "confidence":          round(result["confidence"], 4),
-        "top_features":        top_features,
-        "class_probabilities": result["class_probabilities"],
-    }
-
-
-# ─────────────────────────────────────────────────────────────────
-# CLI entry point
-# ─────────────────────────────────────────────────────────────────
 
 def run_shap_analysis():
-    """Full SHAP analysis: global importance + individual explanation."""
-    log.info("=" * 60)
-    log.info("TRUST-SOC  |  SHAP Explainability")
-    log.info("=" * 60)
-
-    agent = DetectionAgent.load()
-    class_names = list(agent.encoder.classes_)
-
-    X_test = pd.read_parquet(PROCESSED_X_TEST)
-    y_test = pd.read_parquet(PROCESSED_Y_TEST)["label"].values
-
-    # 1. Global importance
-    importance, method = compute_global_importance(agent, X_test)
-    top = plot_global_importance(importance, method)
-
-    log.info(f"\nTop {SHAP_TOP_K} features globally ({method}):")
-    for feat, val in top.items():
-        log.info(f"  {feat:<45} {val:.6f}")
-
-    # 2. Individual explanation (first test sample)
-    log.info("\nIndividual prediction explanation (first test sample):")
-    expl = explain_single_prediction(agent, X_test.iloc[0], class_names)
-
-    log.info(f"  Prediction:  {expl['prediction']}")
-    log.info(f"  Confidence:  {expl['confidence']:.4f}")
-    log.info(f"  Top features:")
-    for tf in expl["top_features"][:5]:
-        log.info(f"    {tf['feature']:<45} SHAP={tf['shap_value']:+.4f}")
-
-    # Save individual explanation
-    out_path = SHAP_DIR / "sample_explanation.json"
+    """
+    Executes Stage 1.7 SHAP analysis and saves outputs.
+    """
     SHAP_DIR.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(expl, indent=2))
-    log.info(f"\nIndividual explanation saved → {out_path}")
+    log.info("Starting Stage 1.7 SHAP Explainability Engine...")
 
-    log.info("=" * 60)
-    log.info("SHAP analysis COMPLETE.")
-    log.info("=" * 60)
-    return top, expl
+    agent = DetectionAgent.load(MODEL_PATH)
+    explainer = TrustShapExplainer(agent)
+
+    # Load test split
+    X_test = joblib.load(PROCESSED_X_TEST)
+    y_test = joblib.load(PROCESSED_Y_TEST)
+    X_test_raw = joblib.load(PROCESSED_X_TEST_RAW)
+
+    # 1. Global SHAP analysis
+    global_results = explainer.compute_global_explanations(X_test, sample_size=SHAP_SAMPLE_SIZE)
+
+    top_features_path = SHAP_DIR / "top_features.json"
+    with open(top_features_path, "w", encoding="utf-8") as f:
+        json.dump(global_results, f, indent=2)
+    log.info(f"Saved global SHAP top features to {top_features_path}")
+
+    # 2. Render Light-Theme Global Summary Bar Plot
+    plot_path = SHAP_DIR / "shap_summary_bar.png"
+    render_shap_bar_plot(global_results["global_top_features"], plot_path)
+
+    # 3. Test per-prediction explanation on real alert flow
+    alert_indices = np.where(y_test != agent.benign_idx)[0]
+    sample_idx = alert_indices[0] if len(alert_indices) > 0 else 0
+
+    flow_scaled = X_test[sample_idx]
+    flow_raw_dict = X_test_raw.iloc[sample_idx].to_dict()
+
+    sample_explanation = explainer.explain_flow(flow_scaled, flow_raw_dict, top_k=SHAP_TOP_K)
+    sample_expl_path = SHAP_DIR / "sample_explanation.json"
+    with open(sample_expl_path, "w", encoding="utf-8") as f:
+        json.dump(sample_explanation, f, indent=2)
+    log.info(f"Saved sample per-prediction explanation to {sample_expl_path}")
+
+    # Latency report
+    log.info(f"Per-prediction explanation latency: {sample_explanation['explanation_latency_ms']} ms")
+    log.info("SHAP explainability verification complete.")
+    return global_results, sample_explanation
+
+
+def render_shap_bar_plot(top_features: List[Dict[str, Any]], save_path: Path):
+    """
+    Renders light-theme horizontal bar chart of top SHAP features.
+    """
+    apply_matplotlib_theme(plt)
+
+    features = [item["feature"] for item in reversed(top_features)]
+    values = [item["mean_abs_shap"] for item in reversed(top_features)]
+
+    fig, ax = plt.subplots(figsize=(10, 6.5), facecolor=THEME["surface"])
+
+    bars = ax.barh(features, values, color=THEME["primary"], edgecolor=THEME["border"], height=0.6)
+
+    ax.set_title("Global Feature Importance — Mean |SHAP| (Detection Agent)", fontsize=13, weight="bold", pad=15, color=THEME["primary"])
+    ax.set_xlabel("Mean |SHAP Value| (Impact on Model Predictions)", fontsize=11, labelpad=10, color=THEME["text"])
+    ax.grid(axis="x", linestyle="--", alpha=0.5, color=THEME["border"])
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color(THEME["border"])
+    ax.spines["bottom"].set_color(THEME["border"])
+
+    max_v = max(values)
+    for bar in bars:
+        w = bar.get_width()
+        ax.text(
+            w + max_v * 0.015,
+            bar.get_y() + bar.get_height() / 2,
+            f"{w:.4f}",
+            va="center",
+            ha="left",
+            fontsize=9,
+            color=THEME["text"],
+            weight="medium"
+        )
+
+    plt.tight_layout()
+    fig.savefig(save_path, dpi=300, facecolor=THEME["surface"], bbox_inches="tight")
+    plt.close(fig)
+    log.info(f"Saved SHAP summary bar plot to {save_path}")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     run_shap_analysis()

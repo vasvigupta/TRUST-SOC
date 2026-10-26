@@ -1,0 +1,51 @@
+{
+  "description": "CICIDS2017 Dataset Environment Asset Inventory and Criticality Mapping",
+  "critical_assets": {
+    "192.168.10.50": {
+      "hostname": "Ubuntu-Server",
+      "role": "web_ftp_ssh_server",
+      "criticality": "HIGH",
+      "criticality_weight": 0.85,
+      "expected_services": [80, 21, 22]
+    },
+    "192.168.10.3": {
+      "hostname": "DC-DNS-Server",
+      "role": "domain_controller",
+      "criticality": "CRITICAL",
+      "criticality_weight": 1.0,
+      "expected_services": [53, 88, 389, 445]
+    },
+    "192.168.10.1": {
+      "hostname": "Gateway-Router",
+      "role": "default_gateway",
+      "criticality": "HIGH",
+      "criticality_weight": 0.80,
+      "expected_services": [53]
+    },
+    "205.174.165.73": {
+      "hostname": "Botnet-C2-Master",
+      "role": "external_c2_server",
+      "criticality": "HOSTILE",
+      "criticality_weight": 1.0,
+      "expected_services": [8080]
+    }
+  },
+  "subnets": {
+    "internal": "192.168.10.0/24",
+    "adversary": "172.16.0.0/16"
+  },
+  "whitelisted_flows": [
+    {
+      "dst_ip": "192.168.10.3",
+      "dst_port": 53,
+      "protocol": 17,
+      "description": "Internal DNS Resolution"
+    },
+    {
+      "dst_ip": "192.168.10.1",
+      "dst_port": 53,
+      "protocol": 17,
+      "description": "Gateway DNS Forwarding"
+    }
+  ]
+}

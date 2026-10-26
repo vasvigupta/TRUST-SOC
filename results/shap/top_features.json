@@ -1,62 +1,291 @@
-[
-  {
-    "feature": "Flow Packets/s",
-    "importance": 0.041775
+{
+  "sample_size": 500,
+  "compute_time_sec": 11.85,
+  "latency_ms_per_flow": 23.701,
+  "global_top_features": [
+    {
+      "rank": 1,
+      "feature": "Init_Win_bytes_backward",
+      "mean_abs_shap": 0.01865
+    },
+    {
+      "rank": 2,
+      "feature": "min_seg_size_forward",
+      "mean_abs_shap": 0.01845
+    },
+    {
+      "rank": 3,
+      "feature": "Subflow Fwd Bytes",
+      "mean_abs_shap": 0.01755
+    },
+    {
+      "rank": 4,
+      "feature": "Fwd Packet Length Max",
+      "mean_abs_shap": 0.01685
+    },
+    {
+      "rank": 5,
+      "feature": "Init_Win_bytes_forward",
+      "mean_abs_shap": 0.01461
+    },
+    {
+      "rank": 6,
+      "feature": "Average Packet Size",
+      "mean_abs_shap": 0.01267
+    },
+    {
+      "rank": 7,
+      "feature": "Packet Length Mean",
+      "mean_abs_shap": 0.0112
+    },
+    {
+      "rank": 8,
+      "feature": "Avg Bwd Segment Size",
+      "mean_abs_shap": 0.01081
+    },
+    {
+      "rank": 9,
+      "feature": "Total Length of Fwd Packets",
+      "mean_abs_shap": 0.01064
+    },
+    {
+      "rank": 10,
+      "feature": "Fwd Packet Length Mean",
+      "mean_abs_shap": 0.00926
+    }
+  ],
+  "per_class_top_features": {
+    "Benign": [
+      {
+        "rank": 1,
+        "feature": "Init_Win_bytes_forward",
+        "mean_abs_shap": 0.03654
+      },
+      {
+        "rank": 2,
+        "feature": "Init_Win_bytes_backward",
+        "mean_abs_shap": 0.03531
+      },
+      {
+        "rank": 3,
+        "feature": "Fwd Packet Length Max",
+        "mean_abs_shap": 0.03446
+      },
+      {
+        "rank": 4,
+        "feature": "Subflow Fwd Bytes",
+        "mean_abs_shap": 0.03438
+      },
+      {
+        "rank": 5,
+        "feature": "Total Length of Fwd Packets",
+        "mean_abs_shap": 0.02255
+      }
+    ],
+    "Botnet": [
+      {
+        "rank": 1,
+        "feature": "Init_Win_bytes_backward",
+        "mean_abs_shap": 0.02749
+      },
+      {
+        "rank": 2,
+        "feature": "Init_Win_bytes_forward",
+        "mean_abs_shap": 0.01829
+      },
+      {
+        "rank": 3,
+        "feature": "min_seg_size_forward",
+        "mean_abs_shap": 0.01128
+      },
+      {
+        "rank": 4,
+        "feature": "Average Packet Size",
+        "mean_abs_shap": 0.00844
+      },
+      {
+        "rank": 5,
+        "feature": "Flow IAT Mean",
+        "mean_abs_shap": 0.00837
+      }
+    ],
+    "Brute Force": [
+      {
+        "rank": 1,
+        "feature": "min_seg_size_forward",
+        "mean_abs_shap": 0.03025
+      },
+      {
+        "rank": 2,
+        "feature": "Bwd Packet Length Min",
+        "mean_abs_shap": 0.01428
+      },
+      {
+        "rank": 3,
+        "feature": "Init_Win_bytes_forward",
+        "mean_abs_shap": 0.01152
+      },
+      {
+        "rank": 4,
+        "feature": "Bwd Header Length",
+        "mean_abs_shap": 0.01107
+      },
+      {
+        "rank": 5,
+        "feature": "Average Packet Size",
+        "mean_abs_shap": 0.00841
+      }
+    ],
+    "DoS/DDoS": [
+      {
+        "rank": 1,
+        "feature": "Avg Bwd Segment Size",
+        "mean_abs_shap": 0.02598
+      },
+      {
+        "rank": 2,
+        "feature": "min_seg_size_forward",
+        "mean_abs_shap": 0.02488
+      },
+      {
+        "rank": 3,
+        "feature": "Bwd Packet Length Std",
+        "mean_abs_shap": 0.02003
+      },
+      {
+        "rank": 4,
+        "feature": "Fwd Packet Length Max",
+        "mean_abs_shap": 0.01851
+      },
+      {
+        "rank": 5,
+        "feature": "Bwd Packet Length Mean",
+        "mean_abs_shap": 0.01752
+      }
+    ],
+    "Port Scan": [
+      {
+        "rank": 1,
+        "feature": "Subflow Fwd Bytes",
+        "mean_abs_shap": 0.03604
+      },
+      {
+        "rank": 2,
+        "feature": "Fwd Packet Length Max",
+        "mean_abs_shap": 0.03124
+      },
+      {
+        "rank": 3,
+        "feature": "Total Length of Fwd Packets",
+        "mean_abs_shap": 0.01687
+      },
+      {
+        "rank": 4,
+        "feature": "Packet Length Mean",
+        "mean_abs_shap": 0.01497
+      },
+      {
+        "rank": 5,
+        "feature": "Fwd Packet Length Mean",
+        "mean_abs_shap": 0.01358
+      }
+    ],
+    "Web Attack": [
+      {
+        "rank": 1,
+        "feature": "Init_Win_bytes_backward",
+        "mean_abs_shap": 0.02501
+      },
+      {
+        "rank": 2,
+        "feature": "Average Packet Size",
+        "mean_abs_shap": 0.01509
+      },
+      {
+        "rank": 3,
+        "feature": "min_seg_size_forward",
+        "mean_abs_shap": 0.01278
+      },
+      {
+        "rank": 4,
+        "feature": "Max Packet Length",
+        "mean_abs_shap": 0.01112
+      },
+      {
+        "rank": 5,
+        "feature": "Fwd IAT Std",
+        "mean_abs_shap": 0.00933
+      }
+    ]
   },
-  {
-    "feature": "act_data_pkt_fwd",
-    "importance": 0.037751
-  },
-  {
-    "feature": "Packet Length Variance",
-    "importance": 0.02629
-  },
-  {
-    "feature": "Flow Duration",
-    "importance": 0.025736
-  },
-  {
-    "feature": "Fwd Packet Length Min",
-    "importance": 0.023581
-  },
-  {
-    "feature": "Fwd Packets/s",
-    "importance": 0.018594
-  },
-  {
-    "feature": "Idle Max",
-    "importance": 0.018132
-  },
-  {
-    "feature": "Subflow Fwd Packets",
-    "importance": 0.014247
-  },
-  {
-    "feature": "Total Fwd Packets",
-    "importance": 0.013645
-  },
-  {
-    "feature": "Bwd Packet Length Std",
-    "importance": 0.013131
-  },
-  {
-    "feature": "Down/Up Ratio",
-    "importance": 0.012158
-  },
-  {
-    "feature": "Bwd Header Length",
-    "importance": 0.011787
-  },
-  {
-    "feature": "Idle Min",
-    "importance": 0.011693
-  },
-  {
-    "feature": "Bwd IAT Mean",
-    "importance": 0.010222
-  },
-  {
-    "feature": "Fwd IAT Mean",
-    "importance": 0.009345
+  "all_features_importance": {
+    "Flow Duration": 0.00534,
+    "Total Fwd Packets": 0.00284,
+    "Total Backward Packets": 0.00579,
+    "Total Length of Fwd Packets": 0.01064,
+    "Total Length of Bwd Packets": 0.00762,
+    "Fwd Packet Length Max": 0.01685,
+    "Fwd Packet Length Min": 0.00385,
+    "Fwd Packet Length Mean": 0.00926,
+    "Fwd Packet Length Std": 0.00312,
+    "Bwd Packet Length Max": 0.00652,
+    "Bwd Packet Length Min": 0.00905,
+    "Bwd Packet Length Mean": 0.00842,
+    "Bwd Packet Length Std": 0.00793,
+    "Flow Bytes/s": 0.00442,
+    "Flow Packets/s": 0.00412,
+    "Flow IAT Mean": 0.00626,
+    "Flow IAT Std": 0.00561,
+    "Flow IAT Max": 0.00515,
+    "Flow IAT Min": 0.00321,
+    "Fwd IAT Total": 0.00296,
+    "Fwd IAT Mean": 0.00343,
+    "Fwd IAT Std": 0.00548,
+    "Fwd IAT Max": 0.00386,
+    "Fwd IAT Min": 0.00295,
+    "Bwd IAT Total": 0.00189,
+    "Bwd IAT Mean": 0.00238,
+    "Bwd IAT Std": 0.00264,
+    "Bwd IAT Max": 0.002,
+    "Bwd IAT Min": 0.0018,
+    "Fwd PSH Flags": 0.00094,
+    "Fwd URG Flags": 0.0,
+    "Fwd Header Length": 0.00596,
+    "Bwd Header Length": 0.00709,
+    "Fwd Packets/s": 0.00326,
+    "Bwd Packets/s": 0.00676,
+    "Min Packet Length": 0.003,
+    "Max Packet Length": 0.00735,
+    "Packet Length Mean": 0.0112,
+    "Packet Length Std": 0.00584,
+    "Packet Length Variance": 0.00514,
+    "FIN Flag Count": 1e-05,
+    "SYN Flag Count": 0.0012,
+    "RST Flag Count": 0.0,
+    "PSH Flag Count": 0.00544,
+    "ACK Flag Count": 0.00265,
+    "URG Flag Count": 0.00189,
+    "CWE Flag Count": 0.0,
+    "ECE Flag Count": 0.0,
+    "Down/Up Ratio": 0.00138,
+    "Average Packet Size": 0.01267,
+    "Avg Fwd Segment Size": 0.00829,
+    "Avg Bwd Segment Size": 0.01081,
+    "Subflow Fwd Packets": 0.00282,
+    "Subflow Fwd Bytes": 0.01755,
+    "Subflow Bwd Packets": 0.00503,
+    "Subflow Bwd Bytes": 0.0064,
+    "Init_Win_bytes_forward": 0.01461,
+    "Init_Win_bytes_backward": 0.01865,
+    "act_data_pkt_fwd": 0.00311,
+    "min_seg_size_forward": 0.01845,
+    "Active Mean": 0.00043,
+    "Active Std": 2e-05,
+    "Active Max": 0.00046,
+    "Active Min": 0.00051,
+    "Idle Mean": 0.00051,
+    "Idle Std": 7e-05,
+    "Idle Max": 0.00057,
+    "Idle Min": 0.00072
   }
-]
+}

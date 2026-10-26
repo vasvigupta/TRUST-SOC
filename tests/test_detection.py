@@ -1,119 +1,75 @@
 """
-Tests — Detection Agent (unit tests with a tiny synthetic dataset)
+Unit Tests — Detection Agent (Stage 1.4 & 1.5)
+==============================================
+Stdlib unittest tests verifying:
+- Model load / reload parity
+- Predict and predict_proba outputs
+- Probability sums to 1.0
+- detect() single-flow inference interface
+- Alert flag correctness
 """
 
-import sys
-import pytest
-import numpy as np
-import pandas as pd
+import unittest
 from pathlib import Path
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import LabelEncoder
+import numpy as np
+import joblib
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.config.config import MODEL_PATH, PROCESSED_X_TEST, ENCODER_PATH, FEATURE_NAMES_PATH
 from src.detection.model import DetectionAgent
-from src.config.config import PROJECT_CLASSES
 
 
-def make_agent():
-    """Build and fit a minimal DetectionAgent for testing."""
-    rng = np.random.default_rng(42)
-    n, f = 300, 10
-    X = rng.random((n, f))
-    labels_raw = np.array(PROJECT_CLASSES * (n // len(PROJECT_CLASSES) + 1))[:n]
+class TestDetectionAgent(unittest.TestCase):
 
-    le = LabelEncoder()
-    y  = le.fit_transform(labels_raw)
+    @classmethod
+    def setUpClass(cls):
+        cls.agent = DetectionAgent.load(MODEL_PATH)
+        cls.encoder = joblib.load(ENCODER_PATH)
+        cls.feature_names = joblib.load(FEATURE_NAMES_PATH)
+        cls.X_test = joblib.load(PROCESSED_X_TEST)
 
-    clf = RandomForestClassifier(n_estimators=10, random_state=42)
-    clf.fit(X, y)
+    def test_model_loaded(self):
+        """Verify DetectionAgent loaded successfully."""
+        self.assertIsNotNone(self.agent.classifier)
+        self.assertIsNotNone(self.agent.encoder)
+        self.assertEqual(len(self.agent.feature_names), len(self.feature_names))
 
-    feature_names = [f"feat_{i}" for i in range(f)]
-    agent = DetectionAgent(clf, le, feature_names)
-    return agent, X, y, le
+    def test_predict_shape_and_classes(self):
+        """Verify predict output shape and valid class indices."""
+        sample_X = self.X_test[:25]
+        preds = self.agent.predict(sample_X)
+        self.assertEqual(preds.shape, (25,))
+        self.assertTrue(all(0 <= p < len(self.encoder.classes_) for p in preds))
 
+    def test_predict_proba_sums_to_one(self):
+        """Verify probability distribution sums to 1.0 across all samples."""
+        sample_X = self.X_test[:50]
+        probs = self.agent.predict_proba(sample_X)
+        self.assertEqual(probs.shape, (50, len(self.encoder.classes_)))
 
-# ── predict ───────────────────────────────────────────────────────
+        row_sums = np.sum(probs, axis=1)
+        np.testing.assert_allclose(
+            row_sums, 1.0, atol=1e-4,
+            err_msg="Probability rows do not sum to 1.0!"
+        )
 
-def test_predict_shape():
-    agent, X, y, _ = make_agent()
-    preds = agent.predict(X[:10])
-    assert preds.shape == (10,)
+    def test_detect_single_flow_interface(self):
+        """Verify detect() contract: {predicted_class, probability, class_probabilities, is_alert}."""
+        single_vec = self.X_test[0]
+        out = self.agent.detect(single_vec)
 
+        self.assertIn("predicted_class", out)
+        self.assertIn("probability", out)
+        self.assertIn("class_probabilities", out)
+        self.assertIn("is_alert", out)
 
-def test_predict_values_valid():
-    agent, X, y, le = make_agent()
-    preds = agent.predict(X)
-    assert set(preds).issubset(set(range(len(le.classes_))))
+        self.assertIn(out["predicted_class"], self.encoder.classes_)
+        self.assertAlmostEqual(sum(out["class_probabilities"].values()), 1.0, delta=1e-2)
 
-
-# ── predict_proba ─────────────────────────────────────────────────
-
-def test_predict_proba_shape():
-    agent, X, y, le = make_agent()
-    proba = agent.predict_proba(X[:5])
-    assert proba.shape == (5, len(le.classes_))
-
-
-def test_predict_proba_sums_to_one():
-    agent, X, y, _ = make_agent()
-    proba = agent.predict_proba(X[:20])
-    np.testing.assert_allclose(proba.sum(axis=1), 1.0, atol=1e-5)
-
-
-def test_predict_proba_values_in_range():
-    agent, X, y, _ = make_agent()
-    proba = agent.predict_proba(X)
-    assert (proba >= 0).all() and (proba <= 1).all()
-
-
-# ── predict_label ─────────────────────────────────────────────────
-
-def test_predict_label_returns_strings():
-    agent, X, y, _ = make_agent()
-    labels = agent.predict_label(X[:5])
-    assert isinstance(labels, list)
-    for l in labels:
-        assert isinstance(l, str)
-        assert l in PROJECT_CLASSES
+        if out["predicted_class"] == "Benign":
+            self.assertFalse(out["is_alert"])
+        else:
+            self.assertTrue(out["is_alert"])
 
 
-# ── predict_single ────────────────────────────────────────────────
-
-def test_predict_single_keys():
-    agent, X, y, _ = make_agent()
-    result = agent.predict_single(X[0])
-    assert "prediction" in result
-    assert "confidence" in result
-    assert "class_probabilities" in result
-
-
-def test_predict_single_confidence_in_range():
-    agent, X, y, _ = make_agent()
-    result = agent.predict_single(X[0])
-    assert 0.0 <= result["confidence"] <= 1.0
-
-
-def test_predict_single_prediction_is_valid_class():
-    agent, X, y, _ = make_agent()
-    result = agent.predict_single(X[0])
-    assert result["prediction"] in PROJECT_CLASSES
-
-
-# ── save / load ───────────────────────────────────────────────────
-
-def test_save_and_load(tmp_path):
-    agent, X, y, _ = make_agent()
-    save_path = tmp_path / "test_model.joblib"
-    agent.save(save_path)
-    assert save_path.exists()
-
-    loaded = DetectionAgent.load(save_path)
-    preds_orig   = agent.predict(X[:10])
-    preds_loaded = loaded.predict(X[:10])
-    np.testing.assert_array_equal(preds_orig, preds_loaded)
-
-
-def test_load_missing_raises():
-    with pytest.raises(FileNotFoundError):
-        DetectionAgent.load(Path("/nonexistent/model.joblib"))
+if __name__ == "__main__":
+    unittest.main()

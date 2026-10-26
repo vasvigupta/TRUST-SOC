@@ -1,265 +1,345 @@
 """
-Log Replay Pipeline
-====================
-Simulates a SOC receiving network-flow records one-by-one
-from a historical CICIDS2017 CSV (the preprocessed test sample).
+Log Ingestion & Flow Replay Simulator (Stage 1.8)
+=================================================
+Simulates a SOC streaming ingestion feed using Python generator + queue.Queue.
+No external message brokers (Kafka/RabbitMQ) required, but message payloads
+are strictly Kafka-compatible (key, timestamp, JSON payload).
 
-Flow:
-  CSV row → preprocess → DetectionAgent → probability → SHAP → Alert
+Controls:
+    start() | pause() | resume() | next() | next_n(n) | stop() | set_rate()
 
-This is NOT real-time traffic capture.
-It is a controlled replay of historical records to simulate
-the SOC ingestion pipeline.
+Flow lifecycle:
+    Replay CSV record -> Common JSON flow schema (Section 5)
+    -> Exact Training Scaler/Imputer -> Detection Agent
+    -> SHAP TreeExplainer Top-k Attributions
+    -> Canonical Alert Object (Verification = NOT_IMPLEMENTED)
 """
 
-import sys
-import json
 import time
+import json
+import uuid
+import queue
 import logging
-import datetime
+import threading
+from pathlib import Path
+from datetime import datetime, timezone
+from typing import Iterator, Dict, Any, List, Optional
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from typing import Iterator, Optional
+import joblib
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.config.config import (
-    REPLAY_SAMPLE_PATH, REPLAY_N_RECORDS, REPLAY_DELAY_SEC,
+    REPLAY_SAMPLE_PATH, SCALER_PATH, IMPUTER_PATH, ENCODER_PATH,
+    FEATURE_NAMES_PATH, MODEL_PATH, REPORTS_DIR, REPLAY_DEFAULT_RATE
 )
+from src.schemas.alert import create_empty_alert, validate_alert
+from src.detection.model import DetectionAgent
+from src.explainability.shap_explainer import TrustShapExplainer
+from src.verification.verification_agent import VerificationAgent
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%H:%M:%S",
-)
 log = logging.getLogger("TRUST-SOC.replay")
 
 
-# ─────────────────────────────────────────────────────────────────
-# Alert Structure
-# ─────────────────────────────────────────────────────────────────
-
-def build_alert(
-    flow_id: int,
-    prediction: str,
-    probability: float,
-    top_features: list,
-    class_probabilities: dict,
-    true_label: Optional[str] = None,
-) -> dict:
+class LogReplaySimulator:
     """
-    Build the internal alert object.
-
-    Future fields (NOT yet implemented):
-        verification_result, verification_confidence,
-        corroboration, final_confidence, severity, mitre_tactic, evidence
-    """
-    alert = {
-        "alert_id":           f"ALERT-{flow_id:05d}",
-        "timestamp":          datetime.datetime.utcnow().isoformat() + "Z",
-        "flow_index":         flow_id,
-
-        # ── Detection Agent output ────────────────────────────────
-        "prediction":         prediction,
-        "probability":        round(probability, 4),
-        "class_probabilities": {k: round(v, 4) for k, v in class_probabilities.items()},
-        "top_features":       top_features,
-
-        "status":             "DETECTED",
-
-        # ── Ground truth (only present during evaluation replay) ──
-        "true_label":         true_label,
-
-        # ── Future Verification Agent fields (stubs) ──────────────
-        "verification_result":     "NOT_IMPLEMENTED",
-        "verification_confidence": None,
-        "final_confidence":        None,
-        "severity":                None,
-        "mitre_tactic":            None,
-    }
-    return alert
-
-
-# ─────────────────────────────────────────────────────────────────
-# Replay Engine
-# ─────────────────────────────────────────────────────────────────
-
-class LogReplayEngine:
-    """
-    Replays preprocessed network-flow records one at a time.
-
-    Parameters
-    ----------
-    agent : DetectionAgent
-        A loaded DetectionAgent.
-    sample_path : Path
-        CSV produced by preprocessing (scaled features + TrustSOC_Label).
-    use_shap : bool
-        Whether to include per-record SHAP explanation (slower).
-    delay : float
-        Seconds to wait between records (0 = max speed).
+    Controlled-rate replay simulator for SOC alert generation.
     """
 
-    def __init__(self, agent, sample_path: Path = REPLAY_SAMPLE_PATH,
-                 use_shap: bool = True, delay: float = REPLAY_DELAY_SEC):
-        self.agent       = agent
-        self.delay       = delay
-        self.use_shap    = use_shap
-        self._df         = None
-        self._pos        = 0
-        self._running    = False
-        self.sample_path = sample_path
+    def __init__(
+        self,
+        sample_path: Path = REPLAY_SAMPLE_PATH,
+        records_per_second: float = REPLAY_DEFAULT_RATE,
+        enable_shap: bool = True
+    ):
+        self.sample_path = Path(sample_path)
+        self.rate = float(records_per_second)
+        self.enable_shap = enable_shap
 
-    def load(self):
-        """Load the replay CSV."""
         if not self.sample_path.exists():
             raise FileNotFoundError(
-                f"ERROR: Replay sample not found at {self.sample_path}.\n"
-                "Run preprocessing first:  python -m src.preprocessing.preprocess"
+                f"ERROR: Replay dataset not found at {self.sample_path}.\n"
+                "Run: python run.py preprocess"
             )
-        self._df  = pd.read_csv(self.sample_path)
-        self._pos = 0
-        log.info(f"Replay dataset loaded: {len(self._df)} records  ← {self.sample_path.name}")
-        return self
 
-    def start(self):
-        self._running = True
-        self._pos     = 0
-        log.info("Replay STARTED.")
+        log.info(f"Loading replay source data from {self.sample_path}...")
+        self.df = pd.read_csv(self.sample_path)
+        log.info(f"Loaded {len(self.df):,} replayed flows available in buffer.")
+
+        # Load exact preprocessing & detection artifacts
+        log.info("Loading fitted preprocessing artifacts and Detection Agent...")
+        self.scaler = joblib.load(SCALER_PATH)
+        self.imputer = joblib.load(IMPUTER_PATH)
+        self.encoder = joblib.load(ENCODER_PATH)
+        self.feature_names = joblib.load(FEATURE_NAMES_PATH)
+
+        self.detector = DetectionAgent.load(MODEL_PATH)
+        self.verifier = VerificationAgent()
+
+        if self.enable_shap:
+            self.explainer = TrustShapExplainer(self.detector)
+        else:
+            self.explainer = None
+
+        # Queue & state management
+        self.queue = queue.Queue(maxsize=1000)
+        self._current_index = 0
+        self._is_running = False
+        self._is_paused = False
+        self._worker_thread: Optional[threading.Thread] = None
+
+    def set_rate(self, records_per_second: float):
+        """Adjusts the playback rate in records per second."""
+        self.rate = max(0.1, float(records_per_second))
+        log.info(f"Replay rate set to {self.rate} records/second.")
+
+    def _normalize_raw_record(self, row: pd.Series, row_idx: int) -> Dict[str, Any]:
+        """
+        Normalizes a CSV row into a Kafka-compatible message with Section 5 flow block.
+        """
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Available network metadata fields
+        meta_keys = [
+            "Flow ID", "Source IP", "Source Port",
+            "Destination IP", "Destination Port", "Protocol", "Timestamp"
+        ]
+        fields_available = {}
+        for k in meta_keys:
+            if k in row:
+                val = row[k]
+                fields_available[k] = int(val) if isinstance(val, (int, np.integer)) else str(val)
+
+        source_file = str(row.get("source_file", "CICIDS2017_replay_stream.csv"))
+
+        # Raw unscaled features dictionary
+        features = {}
+        for fname in self.feature_names:
+            features[fname] = float(row[fname]) if fname in row else 0.0
+
+        # Ground truth block for evaluation ONLY
+        orig_label = str(row.get("Label", row.get("project_class", "Unknown")))
+        proj_class = str(row.get("project_class", "Benign"))
+        is_attack = (proj_class != "Benign")
+
+        ground_truth = {
+            "original_label": orig_label,
+            "project_class": proj_class,
+            "is_attack": is_attack
+        }
+
+        return {
+            "key": f"flow:{row_idx}",
+            "timestamp": now_iso,
+            "source_file": source_file,
+            "row_index": row_idx,
+            "fields_available": fields_available,
+            "features": features,
+            "ground_truth": ground_truth
+        }
+
+    def process_record(self, raw_msg: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Processes a normalized raw flow message through Detection -> SHAP -> Verification.
+        Returns a valid Canonical Alert object (Section 5).
+        """
+        row_idx = raw_msg["row_index"]
+        features_dict = raw_msg["features"]
+        fields_available = raw_msg["fields_available"]
+        source_file = raw_msg["source_file"]
+        ground_truth = raw_msg["ground_truth"]
+
+        # 1. Initialize schema
+        alert = create_empty_alert(
+            source_file=source_file,
+            row_index=row_idx,
+            fields_available=fields_available,
+            features=features_dict,
+            ground_truth=ground_truth,
+            alert_id=f"alert-{uuid.uuid4().hex[:8]}:{row_idx}"
+        )
+
+        # 2. Extract feature vector and apply exact fitted preprocessing
+        raw_vec = np.array([features_dict[f] for f in self.feature_names], dtype=np.float32).reshape(1, -1)
+        raw_vec_clean = np.where(np.isinf(raw_vec), np.nan, raw_vec)
+        imp_vec = self.imputer.transform(raw_vec_clean)
+        scaled_vec = self.scaler.transform(imp_vec).astype(np.float32)
+
+        # 3. Detection Agent inference
+        det_out = self.detector.detect(scaled_vec[0])
+        alert["detection"] = {
+            "model": self.detector.model_type,
+            "predicted_class": det_out["predicted_class"],
+            "probability": det_out["probability"],
+            "class_probabilities": det_out["class_probabilities"],
+            "top_features": [],
+            "is_alert": det_out["is_alert"],
+        }
+        alert["audit_trail"].append({
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "stage": "detection",
+            "event": f"Classified as {det_out['predicted_class']} (p={det_out['probability']})"
+        })
+
+        # 4. SHAP explainability (computed for all flows, essential for alerts)
+        if self.enable_shap and self.explainer:
+            shap_out = self.explainer.explain_flow(
+                scaled_vec[0],
+                flow_raw=features_dict,
+                top_k=5
+            )
+            alert["detection"]["top_features"] = shap_out["top_features"]
+            alert["audit_trail"].append({
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "stage": "explainability",
+                "event": f"Generated top-{len(shap_out['top_features'])} SHAP feature attributions ({shap_out['explanation_latency_ms']}ms)"
+            })
+
+        # 5. Verification Agent (Milestone 2 Active)
+        ver_block = self.verifier.verify(alert)
+        alert["verification"] = ver_block
+        alert["audit_trail"].append({
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "stage": "verification",
+            "event": f"Verification completed: {ver_block['decision']} (p_v={ver_block['p_v']})"
+        })
+
+        # Validate schema contract
+        validate_alert(alert)
+        return alert
+
+    def _worker_loop(self, max_records: Optional[int]):
+        """Background thread feeding the replay queue."""
+        processed_count = 0
+        while self._is_running:
+            if self._is_paused:
+                time.sleep(0.05)
+                continue
+
+            if max_records is not None and processed_count >= max_records:
+                log.info(f"Replay reached requested max records limit ({max_records}).")
+                break
+
+            if self._current_index >= len(self.df):
+                log.info("Reached end of replay dataset. Wrapping to beginning.")
+                self._current_index = 0
+
+            row = self.df.iloc[self._current_index]
+            row_idx = self._current_index
+            self._current_index += 1
+            processed_count += 1
+
+            raw_msg = self._normalize_raw_record(row, row_idx)
+            alert = self.process_record(raw_msg)
+
+            self.queue.put(alert)
+
+            # Rate throttling
+            delay = 1.0 / self.rate
+            time.sleep(delay)
+
+        self._is_running = False
+
+    # ── Replay API Controls ──────────────────────────────────────────
+
+    def start(self, max_records: Optional[int] = None, rate: Optional[float] = None):
+        """Starts replay in background thread."""
+        if rate is not None:
+            self.set_rate(rate)
+
+        if self._is_running and not self._is_paused:
+            log.warning("Replay is already running.")
+            return
+
+        if self._is_paused:
+            self.resume()
+            return
+
+        self._is_running = True
+        self._is_paused = False
+        self._worker_thread = threading.Thread(
+            target=self._worker_loop,
+            args=(max_records,),
+            daemon=True
+        )
+        self._worker_thread.start()
+        log.info(f"Replay started at {self.rate} records/sec.")
+
+    def pause(self):
+        """Pauses the replay playback."""
+        self._is_paused = True
+        log.info("Replay paused.")
+
+    def resume(self):
+        """Resumes the replay playback."""
+        self._is_paused = False
+        log.info("Replay resumed.")
 
     def stop(self):
-        self._running = False
-        log.info(f"Replay STOPPED at record {self._pos}.")
+        """Stops the replay simulator completely."""
+        self._is_running = False
+        self._is_paused = False
+        if self._worker_thread and self._worker_thread.is_alive():
+            self._worker_thread.join(timeout=1.0)
+        log.info("Replay stopped.")
 
-    def reset(self):
-        self._pos     = 0
-        self._running = False
+    def next(self) -> Dict[str, Any]:
+        """Synchronously processes and returns the next flow alert."""
+        if self._current_index >= len(self.df):
+            self._current_index = 0
 
-    @property
-    def remaining(self):
-        return max(0, len(self._df) - self._pos) if self._df is not None else 0
+        row = self.df.iloc[self._current_index]
+        row_idx = self._current_index
+        self._current_index += 1
 
-    def _process_row(self, idx: int) -> dict:
-        """Run the full pipeline on one row."""
-        row = self._df.iloc[idx]
+        raw_msg = self._normalize_raw_record(row, row_idx)
+        return self.process_record(raw_msg)
 
-        # Separate ground-truth label (present in sample file)
-        true_enc  = row.get("TrustSOC_Label", None)
-        true_label = None
-        if true_enc is not None:
-            try:
-                true_label = self.agent.encoder.inverse_transform([int(true_enc)])[0]
-            except Exception:
-                true_label = str(true_enc)
-
-        # Features only
-        feature_cols = [c for c in self._df.columns if c != "TrustSOC_Label"]
-        x_row = row[feature_cols]
-
-        # Detection
-        result = self.agent.predict_single(x_row)
-
-        # SHAP explanation (optional — can be slow per record)
-        top_features = []
-        if self.use_shap:
-            try:
-                from src.explainability.shap_explainer import explain_single_prediction
-                expl = explain_single_prediction(
-                    self.agent, x_row,
-                    list(self.agent.encoder.classes_)
-                )
-                top_features = expl["top_features"]
-            except Exception as e:
-                log.debug(f"SHAP per-record skipped: {e}")
-
-        alert = build_alert(
-            flow_id             = idx,
-            prediction          = result["prediction"],
-            probability         = result["confidence"],
-            top_features        = top_features,
-            class_probabilities = result["class_probabilities"],
-            true_label          = true_label,
-        )
-        return alert
-
-    def next_record(self) -> Optional[dict]:
-        """Process the next record and advance the position."""
-        if self._df is None:
-            raise RuntimeError("Call .load() before replaying.")
-        if self._pos >= len(self._df):
-            log.info("Replay: end of dataset reached.")
-            self._running = False
-            return None
-
-        alert     = self._process_row(self._pos)
-        self._pos += 1
-        if self.delay > 0:
-            time.sleep(self.delay)
-        return alert
-
-    def replay_n(self, n: int = REPLAY_N_RECORDS) -> list:
-        """Process the next n records. Returns list of alerts."""
+    def next_n(self, n: int) -> List[Dict[str, Any]]:
+        """Synchronously processes and returns next n flow alerts."""
         alerts = []
         for _ in range(n):
-            alert = self.next_record()
-            if alert is None:
-                break
-            alerts.append(alert)
+            alerts.append(self.next())
         return alerts
 
-    def stream(self) -> Iterator[dict]:
-        """Generator: yields alerts one by one until dataset is exhausted."""
-        self.start()
-        while self._running and self._pos < len(self._df):
-            yield self.next_record()
 
-
-# ─────────────────────────────────────────────────────────────────
-# CLI entry point
-# ─────────────────────────────────────────────────────────────────
-
-def run_replay(n: int = REPLAY_N_RECORDS, use_shap: bool = False):
+def run_replay(n_records: int = 50):
     """
-    Demo replay: process n records from the sample CSV and print alerts.
-    SHAP is OFF by default for speed in CLI demo.
+    CLI runner for Stage 1.8 Log Replay.
     """
-    from src.detection.model import DetectionAgent
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    log.info(f"Starting Stage 1.8 Log Replay Simulator ({n_records} flows)...")
 
-    log.info("=" * 60)
-    log.info("TRUST-SOC  |  Log Replay Demo")
-    log.info("=" * 60)
+    simulator = LogReplaySimulator(enable_shap=True)
+    alerts = simulator.next_n(n_records)
 
-    agent  = DetectionAgent.load()
-    engine = LogReplayEngine(agent, use_shap=use_shap)
-    engine.load()
-    engine.start()
+    log.info(f"Successfully replayed and processed {len(alerts)} flows.")
 
-    alerts = engine.replay_n(n)
+    # Show first 5 alerts
+    print("\n" + "=" * 80)
+    print("SAMPLE REPLAYED DETECTION ALERTS (First 5):")
+    print("=" * 80)
+    for i, a in enumerate(alerts[:5], 1):
+        det = a["detection"]
+        flow = a["flow"]
+        gt = a["ground_truth"]
+        top_f_str = ", ".join([f"{f['feature']}={f['shap_value']:+.3f}" for f in det["top_features"][:3]])
+        print(f"[{i:02d}] Alert ID: {a['alert_id']}")
+        print(f"     Time:       {a['ingested_at']}")
+        print(f"     Prediction: {det['predicted_class']:<12} (prob={det['probability']:.4f}) | Is Alert: {det['is_alert']}")
+        print(f"     GroundTruth: {gt['project_class']:<12} (Raw: {gt['original_label']})")
+        print(f"     Top SHAP:   {top_f_str}")
+        print(f"     Verification: {a['verification']['decision']} (M1 Placeholder)")
+        print("-" * 80)
 
-    log.info(f"\nProcessed {len(alerts)} flow records:\n")
-    for a in alerts:
-        match = "✓" if a["true_label"] == a["prediction"] else "✗"
-        log.info(
-            f"  [{match}] Flow {a['flow_index']:>4}  "
-            f"Pred: {a['prediction']:<15}  "
-            f"Prob: {a['probability']:.3f}  "
-            f"True: {a['true_label']}"
-        )
+    # Save to results/reports/sample_alerts.json
+    out_path = REPORTS_DIR / "sample_alerts.json"
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(alerts, f, indent=2)
+    log.info(f"Saved {len(alerts)} sample alerts to {out_path}")
 
-    engine.stop()
-
-    # Save sample alerts
-    out_path = Path("results") / "reports" / "sample_alerts.json"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
-        json.dump(alerts[:10], f, indent=2)
-    log.info(f"\nFirst 10 alerts saved → {out_path}")
-
-    log.info("=" * 60)
-    log.info("Replay COMPLETE.")
-    log.info("=" * 60)
     return alerts
 
 
 if __name__ == "__main__":
-    run_replay()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    run_replay(50)
