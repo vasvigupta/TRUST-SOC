@@ -125,15 +125,17 @@ def run_command(command: str):
 
     elif command == "pipeline":
         log.info("=" * 60)
-        log.info("PIPELINE ORCHESTRATOR — END-TO-END FLOW")
+        log.info("PIPELINE ORCHESTRATOR — END-TO-END FLOW (STAGE 5.1)")
         log.info("=" * 60)
-        print("Pipeline orchestrator: To be invoked in Milestone 3/5.")
+        from src.pipeline.pipeline_orchestrator import run_pipeline_orchestrator
+        run_pipeline_orchestrator(num_flows=50)
 
     elif command == "evaluate-all":
         log.info("=" * 60)
-        log.info("MILESTONE 5 — CONSOLIDATED FULL EVALUATION")
+        log.info("MILESTONE 5 — CONSOLIDATED FULL EVALUATION (STAGE 5.4)")
         log.info("=" * 60)
-        print("Consolidated evaluation: To be invoked in Milestone 5.")
+        from src.evaluation.evaluate_all import run_evaluate_all
+        run_evaluate_all()
 
     else:
         log.error(f"Unknown command: {command}")

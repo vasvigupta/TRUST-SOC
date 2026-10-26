@@ -100,10 +100,10 @@ export default function App() {
           </div>
           <div>BVCOE, New Delhi</div>
           <div style={{ marginTop: '4px' }}>
-            <strong>Team:</strong> Madhav, Vasvi, Anushka
+            <strong>Team:</strong> TRUST-SOC Project Team
           </div>
           <div>
-            <strong>Guide:</strong> Mr. Mohit Tiwari
+            <strong>Guide:</strong> Faculty Guide, BVCOE
           </div>
           <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.8 }}>
             <GitBranch size={12} />

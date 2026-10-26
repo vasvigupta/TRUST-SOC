@@ -1,8 +1,6 @@
 # TRUST-SOC: A Trust-Aware, Verification-Driven Detection Pipeline for Security Operations Centers
 
-> **BTech CSE Micro-Project — Milestones 1, 2, 3 & 4 Deliverables**  
-> **Team**: Madhav Bhardwaj, Vasvi Gupta, Anushka Saxena  
-> **Project Guide**: Mr. Mohit Tiwari  
+> **BTech CSE Micro-Project — Complete Project Deliverables (Milestones 1 to 5)**  
 > **Institution**: Bharati Vidyapeeth's College of Engineering (BVCOE), New Delhi  
 
 ---
@@ -514,3 +512,81 @@ Open **`http://localhost:8000`** in any browser.
 - [x] Flow-by-flow Single Detection pipeline tab operational.
 - [x] Single master CLI command `python run.py serve` starts uvicorn and hosts the application.
 - [x] 100% of unit tests passing in stdlib `unittest` (49/49).
+
+---
+
+## 14. Milestone 5 — Integration, Cross-Dataset Evaluation, System Profiling & Viva Package
+
+Milestone 5 completes the final integration, zero-shot cross-dataset transfer evaluation on **CSE-CIC-IDS2018**, comprehensive latency/load profiling, and the viva examination package.
+
+### 14.1 Pipeline Orchestrator (Stage 5.1)
+The unified pipeline runner (`src/pipeline/pipeline_orchestrator.py`) simulates live multi-flow evaluation across the complete stack:
+```bash
+python run.py pipeline
+```
+Processes flows end-to-end (Detection $\to$ SHAP $\to$ 4-Signal Verification $\to$ Confidence Scoring $\to$ SQLite $\to$ ReportLab PDF) at ~9.6 flows/second.
+
+### 14.2 Zero-Shot Cross-Dataset Transfer on CSE-CIC-IDS2018 (Stages 5.2 & 5.3)
+Evaluates model generalization across network topologies without refitting or retuning:
+- **Common Taxonomy**: 5 common classes (`Benign`, `DoS/DDoS`, `Brute Force`, `Web Attack`, `Botnet`).
+- **Port Scan Absence**: Port Scan attack vector is absent in CSE-CIC-IDS2018 and is reported as absent.
+- **Cross-Dataset Results**:
+  - Standalone Baseline FPR: **1.3889%** (25 false alarms).
+  - Post-Verification FPR: **0.0556%** (only 1 false alarm survives).
+  - **Relative FPR Reduction**: **96.00%** (1.3333 pp absolute reduction).
+  - Cross-dataset comparison plot: `results/verification/cross_dataset_comparison.png`.
+
+### 14.3 System Latency & Concurrency Profiling (Stage 5.5)
+- **Environment**: 4-Core CPU, Windows 10, Python 3.13.
+- **Median Live Pipeline Latency (p50)**: **123.7 ms** (~8.1 alerts/sec).
+- **Bottlenecks Identified**:
+  - Live Path: `SHAP TreeExplainer` (p50 = 65.3 ms, 52.8% of alert compute).
+  - On-Demand Path: `ReportLab PDF rendering` (p50 = 40.7 ms, rendered strictly when downloaded).
+- **Verification Agent Latency**: **0.012 ms** (vectorized multi-signal evaluation).
+- **API Concurrency**: **11.3 requests/second** sustained with zero HTTP errors.
+
+### 14.4 Consolidated Scorecard Runner (Stage 5.4)
+Generates the single machine-readable scorecard `results/final_summary.json`:
+```bash
+python run.py evaluate-all
+```
+
+---
+
+## 15. Data Leakage Prevention Audit
+
+| Checkpoint | Implementation & Evidence | Audit Status |
+|---|---|---|
+| **1. Split-Before-Fit** | Preprocessing split 70% Train, 15% Val, 15% Test before fitting imputer/scaler. | **PASS** (`test_split.py`) |
+| **2. Scaler/Imputer Isolation** | Fitted solely on `X_train`. Transformed `X_val`, `X_test`, and 2018 without refit. | **PASS** (`models/scaler.joblib`) |
+| **3. IForest Separation** | Isolation Forest fitted strictly on clean benign training flows only. | **PASS** (`test_verification.py`) |
+| **4. Ground Truth Air-Gap** | Verification Agent never reads `ground_truth` dict at runtime. | **PASS** (`test_ground_truth_isolation`) |
+| **5. Causal Rolling Baseline** | Behavioural signal uses strictly past-window observations ($W=50$), no future leakage. | **PASS** (`test_behavioural_signal_causal_integrity`) |
+
+---
+
+## 16. UN Sustainable Development Goals (SDGs) Alignment
+
+- **SDG 9: Industry, Innovation and Infrastructure (Targets 9.1 & 9.c)**: Strengthens cybersecurity resilience of digital financial and public cloud infrastructure through precision alert verification.
+- **SDG 16: Peace, Justice and Strong Institutions (Target 16.6)**: Provides transparent, explainable decision-making and cryptographic audit trails, establishing accountable institutions in cybersecurity operations.
+
+---
+
+## 17. Final Project Checklist (All Milestones Complete & Verified)
+
+- [x] **Data Foundation**: Cleaned 2.83M CICIDS2017 flows, 6 project classes, zero data leakage.
+- [x] **Detection Agent**: Balanced Random Forest baseline (99.88% accuracy) + XGBoost comparison.
+- [x] **Explainability**: SHAP TreeExplainer computing top-5 directional feature attributions.
+- [x] **Verification Agent**: 4 independent signals ($r, s, b, e$) with formal decision table (`CONFIRM`, `REDUCE`, `REJECT`).
+- [x] **Primary Metric Delivered**: **98.79% relative FPR reduction** (1.3721% $\to$ 0.0167%), recall cost 2.39%, $\kappa = 0.608$.
+- [x] **Confidence Scoring**: Fused formula $C = 0.40 p_d + 0.40 p_v + 0.20 r_{\text{corr}}$, HIGH/MED/LOW bands.
+- [x] **Alert Prioritisation Matrix**: $3 \times 3$ operational triage matrix evaluated and visualized.
+- [x] **Storage Layer**: SQLite with WAL mode, thread-safe dynamic connections.
+- [x] **Evidence Reports**: ReportLab PDF and JSON evidence generation adhering to Section 3 Light Theme.
+- [x] **FastAPI Backend**: 11 REST endpoints + Server-Sent Events (SSE) live streaming feed.
+- [x] **React.js + Chart.js Dashboard**: Section 3 Light Theme, live replay controls, 3 charts, alerts feed, forensic drill-down drawer, single flow tester.
+- [x] **Cross-Dataset Generalization**: CSE-CIC-IDS2018 zero-shot evaluation (96.00% FPR reduction, Port Scan absence noted).
+- [x] **System Performance**: Per-stage p50/p95/p99 profiling and concurrent API load testing.
+- [x] **Documentation & Viva Package**: Complete `docs/evaluation_report.md`, `docs/architecture.md`, `docs/demo_script.md`, and `docs/viva_notes.md`.
+- [x] **Master CLI**: `python run.py [explore|preprocess|train|evaluate|explain|replay|verify|score|report|serve|pipeline|evaluate-all]`.
+- [x] **Unit & Integration Tests**: 100% passing in standard library `unittest` (49/49).

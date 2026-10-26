@@ -1,0 +1,105 @@
+{
+  "hardware": {
+    "os": "Windows 10 (10.0.19045)",
+    "processor": "Intel64 Family 6 Model 126 Stepping 5, GenuineIntel",
+    "cpu_cores": 4,
+    "python_version": "3.13.3",
+    "machine": "AMD64"
+  },
+  "pipeline_stages": {
+    "ingestion": {
+      "mean_ms": 1.379,
+      "std_ms": 1.198,
+      "p50_ms": 1.215,
+      "p95_ms": 2.323,
+      "p99_ms": 6.279,
+      "samples": 50
+    },
+    "detection": {
+      "mean_ms": 43.94,
+      "std_ms": 13.251,
+      "p50_ms": 42.494,
+      "p95_ms": 62.601,
+      "p99_ms": 94.344,
+      "samples": 50
+    },
+    "shap_explanation": {
+      "mean_ms": 68.878,
+      "std_ms": 17.6,
+      "p50_ms": 65.311,
+      "p95_ms": 110.92,
+      "p99_ms": 134.518,
+      "samples": 50
+    },
+    "verification": {
+      "mean_ms": 0.02,
+      "std_ms": 0.043,
+      "p50_ms": 0.012,
+      "p95_ms": 0.024,
+      "p99_ms": 0.175,
+      "samples": 50
+    },
+    "scoring": {
+      "mean_ms": 0.046,
+      "std_ms": 0.015,
+      "p50_ms": 0.045,
+      "p95_ms": 0.071,
+      "p99_ms": 0.084,
+      "samples": 50
+    },
+    "sqlite_store": {
+      "mean_ms": 17.224,
+      "std_ms": 8.084,
+      "p50_ms": 15.285,
+      "p95_ms": 25.912,
+      "p99_ms": 49.718,
+      "samples": 50
+    },
+    "pdf_report": {
+      "mean_ms": 40.695,
+      "std_ms": 6.814,
+      "p50_ms": 40.678,
+      "p95_ms": 50.882,
+      "p99_ms": 54.275,
+      "samples": 8
+    },
+    "pipeline_total_without_pdf": {
+      "mean_ms": 131.488,
+      "std_ms": 28.155,
+      "p50_ms": 123.736,
+      "p95_ms": 200.12,
+      "p99_ms": 224.666,
+      "samples": 50
+    },
+    "pipeline_total_with_pdf": {
+      "mean_ms": 163.828,
+      "std_ms": 17.502,
+      "p50_ms": 161.576,
+      "p95_ms": 186.753,
+      "p99_ms": 188.189,
+      "samples": 8
+    }
+  },
+  "api_concurrency": {
+    "status": "completed",
+    "concurrent_workers": 4,
+    "total_requests": 60,
+    "successful_requests": 60,
+    "errors": 0,
+    "duration_seconds": 5.309,
+    "requests_per_second": 11.3,
+    "mean_response_ms": 337.93,
+    "p50_response_ms": 47.59,
+    "p95_response_ms": 3334.89,
+    "p99_response_ms": 3496.63
+  },
+  "bottleneck_analysis": {
+    "primary_live_bottleneck": "SHAP TreeExplainer local attribution (dominant compute in live path)",
+    "primary_batch_bottleneck": "ReportLab PDF rendering (disk I/O and flow layout rendering)",
+    "in_stack_mitigations": [
+      "Compute SHAP attributions selectively only for attack predictions (skip benign silent flows)",
+      "Cache static ReportLab stylesheets and asset templates at process startup",
+      "Maintain SQLite WAL mode with concurrent connection pooling for zero-lock writes"
+    ]
+  }
+}

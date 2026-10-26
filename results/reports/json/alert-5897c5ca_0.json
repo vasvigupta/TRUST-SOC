@@ -1,0 +1,225 @@
+{
+  "report_id": "REP-alert-5897c5ca_0",
+  "generated_at": "2026-10-26T18:22:49.611144+00:00",
+  "mitre_attack": {},
+  "alert": {
+    "schema_version": "1.0",
+    "alert_id": "alert-5897c5ca:0",
+    "ingested_at": "2026-10-26T18:22:49.411572+00:00",
+    "flow": {
+      "source_file": "single_flow_api",
+      "row_index": 0,
+      "fields_available": {
+        "Source IP": "192.168.10.50",
+        "Destination IP": "172.16.0.1",
+        "Source Port": 49152,
+        "Destination Port": 80,
+        "Protocol": 6,
+        "Timestamp": "2026-10-26T18:22:49.411447+00:00"
+      },
+      "features": {
+        "Flow Duration": 125000.0,
+        "Total Fwd Packets": 10.0,
+        "Total Backward Packets": 2.0,
+        "Total Length of Fwd Packets": 500.0,
+        "Total Length of Bwd Packets": 0.0,
+        "Fwd Packet Length Max": 0.0,
+        "Fwd Packet Length Min": 0.0,
+        "Fwd Packet Length Mean": 0.0,
+        "Fwd Packet Length Std": 0.0,
+        "Bwd Packet Length Max": 0.0,
+        "Bwd Packet Length Min": 0.0,
+        "Bwd Packet Length Mean": 0.0,
+        "Bwd Packet Length Std": 0.0,
+        "Flow Bytes/s": 4000.0,
+        "Flow Packets/s": 80.0,
+        "Flow IAT Mean": 0.0,
+        "Flow IAT Std": 0.0,
+        "Flow IAT Max": 0.0,
+        "Flow IAT Min": 0.0,
+        "Fwd IAT Total": 0.0,
+        "Fwd IAT Mean": 0.0,
+        "Fwd IAT Std": 0.0,
+        "Fwd IAT Max": 0.0,
+        "Fwd IAT Min": 0.0,
+        "Bwd IAT Total": 0.0,
+        "Bwd IAT Mean": 0.0,
+        "Bwd IAT Std": 0.0,
+        "Bwd IAT Max": 0.0,
+        "Bwd IAT Min": 0.0,
+        "Fwd PSH Flags": 0.0,
+        "Fwd URG Flags": 0.0,
+        "Fwd Header Length": 0.0,
+        "Bwd Header Length": 0.0,
+        "Fwd Packets/s": 0.0,
+        "Bwd Packets/s": 0.0,
+        "Min Packet Length": 0.0,
+        "Max Packet Length": 0.0,
+        "Packet Length Mean": 50.0,
+        "Packet Length Std": 0.0,
+        "Packet Length Variance": 0.0,
+        "FIN Flag Count": 0.0,
+        "SYN Flag Count": 0.0,
+        "RST Flag Count": 0.0,
+        "PSH Flag Count": 0.0,
+        "ACK Flag Count": 0.0,
+        "URG Flag Count": 0.0,
+        "CWE Flag Count": 0.0,
+        "ECE Flag Count": 0.0,
+        "Down/Up Ratio": 0.0,
+        "Average Packet Size": 0.0,
+        "Avg Fwd Segment Size": 0.0,
+        "Avg Bwd Segment Size": 0.0,
+        "Subflow Fwd Packets": 0.0,
+        "Subflow Fwd Bytes": 0.0,
+        "Subflow Bwd Packets": 0.0,
+        "Subflow Bwd Bytes": 0.0,
+        "Init_Win_bytes_forward": 0.0,
+        "Init_Win_bytes_backward": 0.0,
+        "act_data_pkt_fwd": 0.0,
+        "min_seg_size_forward": 0.0,
+        "Active Mean": 0.0,
+        "Active Std": 0.0,
+        "Active Max": 0.0,
+        "Active Min": 0.0,
+        "Idle Mean": 0.0,
+        "Idle Std": 0.0,
+        "Idle Max": 0.0,
+        "Idle Min": 0.0
+      }
+    },
+    "detection": {
+      "model": "random_forest",
+      "predicted_class": "Benign",
+      "probability": 0.7208,
+      "class_probabilities": {
+        "Benign": 0.7208,
+        "Botnet": 0.0293,
+        "Brute Force": 0.0551,
+        "DoS/DDoS": 0.0,
+        "Port Scan": 0.1816,
+        "Web Attack": 0.0132
+      },
+      "top_features": [
+        {
+          "rank": 1,
+          "feature": "Init_Win_bytes_forward",
+          "shap_value": 0.0855,
+          "feature_value": 0.0,
+          "scaled_value": -0.5379
+        },
+        {
+          "rank": 2,
+          "feature": "Init_Win_bytes_backward",
+          "shap_value": 0.0707,
+          "feature_value": 0.0,
+          "scaled_value": -0.1889
+        },
+        {
+          "rank": 3,
+          "feature": "Bwd Packets/s",
+          "shap_value": 0.0365,
+          "feature_value": 0.0,
+          "scaled_value": -0.1915
+        },
+        {
+          "rank": 4,
+          "feature": "PSH Flag Count",
+          "shap_value": 0.0306,
+          "feature_value": 0.0,
+          "scaled_value": -0.8093
+        },
+        {
+          "rank": 5,
+          "feature": "Total Length of Fwd Packets",
+          "shap_value": 0.0236,
+          "feature_value": 500.0,
+          "scaled_value": -0.1645
+        }
+      ],
+      "is_alert": false
+    },
+    "verification": {
+      "decision": "CONFIRM_BENIGN",
+      "p_v": 0.0,
+      "signals": {
+        "rule": {
+          "score": 0.0,
+          "strongly_contradictory": false,
+          "details": {
+            "note": "Benign flow - no verification required"
+          }
+        },
+        "statistical": {
+          "score": 0.0,
+          "strongly_contradictory": false,
+          "details": {
+            "note": "Benign flow - no verification required"
+          }
+        },
+        "behavioural": {
+          "score": 0.0,
+          "strongly_contradictory": false,
+          "details": {
+            "note": "Benign flow - no verification required"
+          }
+        },
+        "explanation": {
+          "score": 0.0,
+          "strongly_contradictory": false,
+          "details": {
+            "note": "Benign flow - no verification required"
+          }
+        }
+      },
+      "rationale": "Detection Agent classified flow as Benign. Verification layer stands idle."
+    },
+    "scoring": {
+      "composite": 0.2883,
+      "band": "LOW",
+      "components": {
+        "p_d": 0.7208,
+        "p_v": 0.0,
+        "r_corr": 0.0,
+        "alpha": 0.4,
+        "beta": 0.4,
+        "gamma": 0.2
+      },
+      "action": "LOG_ONLY",
+      "matrix_action": "LOG_ONLY"
+    },
+    "mitre": [],
+    "audit_trail": [
+      {
+        "ts": "2026-10-26T18:22:49.411572+00:00",
+        "stage": "ingestion",
+        "event": "Flow record ingested and schema initialized"
+      },
+      {
+        "ts": "2026-10-26T18:22:49.510657+00:00",
+        "stage": "detection",
+        "event": "Classified as Benign (p=0.7208)"
+      },
+      {
+        "ts": "2026-10-26T18:22:49.605682+00:00",
+        "stage": "explainability",
+        "event": "Generated top-5 SHAP feature attributions (91.597ms)"
+      },
+      {
+        "ts": "2026-10-26T18:22:49.605719+00:00",
+        "stage": "verification",
+        "event": "Verification completed: CONFIRM_BENIGN (p_v=0.0)"
+      },
+      {
+        "ts": "2026-10-26T18:22:49.605754+00:00",
+        "stage": "scoring",
+        "event": "Confidence scored: C=0.2883 (LOW) -> LOG_ONLY"
+      }
+    ],
+    "ground_truth": {
+      "original_label": "Unknown",
+      "project_class": "Unknown",
+      "is_attack": true
+    }
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "report_id": "REP-alert-api_1",
+  "generated_at": "2026-10-26T18:23:49.245788+00:00",
+  "mitre_attack": {
+    "technique_id": "T1498",
+    "technique_name": "Network Denial of Service",
+    "tactic": "Impact"
+  },
+  "alert": {
+    "schema_version": "1.0",
+    "alert_id": "alert-api:1",
+    "ingested_at": "2026-10-26T18:23:49.213089+00:00",
+    "flow": {
+      "source_file": "test.csv",
+      "row_index": 42,
+      "fields_available": {
+        "Flow ID": "172.16.0.1-192.168.10.50-50000-80-6",
+        "Source IP": "172.16.0.1",
+        "Destination IP": "192.168.10.50",
+        "Source Port": 50000,
+        "Destination Port": 80,
+        "Protocol": 6,
+        "Timestamp": "07/07/2017 10:00:00"
+      },
+      "features": {
+        "Flow Duration": 2500000.0,
+        "Flow Packets/s": 4000.0,
+        "Flow Bytes/s": 1500000.0,
+        "Packet Length Mean": 350.0
+      }
+    },
+    "detection": {
+      "model": "random_forest",
+      "predicted_class": "DoS/DDoS",
+      "probability": 0.98,
+      "class_probabilities": {
+        "DoS/DDoS": 0.98,
+        "Benign": 0.020000000000000018
+      },
+      "top_features": [
+        {
+          "rank": 1,
+          "feature": "Flow Duration",
+          "shap_value": 0.25,
+          "feature_value": 2500000.0
+        }
+      ],
+      "is_alert": true
+    },
+    "verification": {
+      "decision": "CONFIRM",
+      "p_v": 0.88,
+      "signals": {
+        "rule": {
+          "score": 0.95,
+          "strongly_contradictory": false,
+          "details": {}
+        },
+        "statistical": {
+          "score": 0.85,
+          "strongly_contradictory": false,
+          "details": {}
+        },
+        "behavioural": {
+          "score": 0.8,
+          "strongly_contradictory": false,
+          "details": {}
+        },
+        "explanation": {
+          "score": 0.9,
+          "strongly_contradictory": false,
+          "details": {}
+        }
+      },
+      "rationale": "Strong multi-signal consensus corroborates attack."
+    },
+    "scoring": {
+      "composite": 0.92,
+      "band": "HIGH",
+      "action": "AUTO_ESCALATE"
+    },
+    "mitre": [],
+    "audit_trail": [
+      {
+        "ts": "2026-10-26T10:00:00Z",
+        "stage": "ingestion",
+        "event": "Ingested flow"
+      },
+      {
+        "ts": "2026-10-26T10:00:01Z",
+        "stage": "detection",
+        "event": "Classified DoS/DDoS (p=0.98)"
+      },
+      {
+        "ts": "2026-10-26T10:00:02Z",
+        "stage": "verification",
+        "event": "Verified CONFIRM (p_v=0.88)"
+      },
+      {
+        "ts": "2026-10-26T10:00:03Z",
+        "stage": "scoring",
+        "event": "Scored HIGH (C=0.92)"
+      }
+    ],
+    "status": "NEW"
+  }
+}

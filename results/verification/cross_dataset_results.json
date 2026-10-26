@@ -1,0 +1,156 @@
+{
+  "dataset": "CSE-CIC-IDS2018",
+  "source_file": "sample_cse_cic_ids2018.csv",
+  "samples_evaluated": 3000,
+  "classes_evaluated": [
+    "Benign",
+    "DoS/DDoS",
+    "Brute Force",
+    "Web Attack",
+    "Botnet"
+  ],
+  "port_scan_available": false,
+  "port_scan_note": "Port Scan class is not present in CSE-CIC-IDS2018; reported as absent.",
+  "baseline_metrics": {
+    "accuracy": 0.956,
+    "macro_f1": 0.8994955041676189,
+    "baseline_fpr_pct": 1.3889,
+    "baseline_false_alarms": 25,
+    "total_benign": 1800,
+    "baseline_recall_pct": 92.83,
+    "total_attacks": 1200,
+    "classification_report": {
+      "Benign": {
+        "precision": 0.9537882858678131,
+        "recall": 0.9861111111111112,
+        "f1-score": 0.9696804151871073,
+        "support": 1800.0
+      },
+      "DoS/DDoS": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 600.0
+      },
+      "Brute Force": {
+        "precision": 0.9925093632958801,
+        "recall": 0.8833333333333333,
+        "f1-score": 0.9347442680776014,
+        "support": 300.0
+      },
+      "Web Attack": {
+        "precision": 0.852112676056338,
+        "recall": 0.8066666666666666,
+        "f1-score": 0.8287671232876712,
+        "support": 150.0
+      },
+      "Botnet": {
+        "precision": 0.823076923076923,
+        "recall": 0.7133333333333334,
+        "f1-score": 0.7642857142857142,
+        "support": 150.0
+      },
+      "accuracy": 0.956,
+      "macro avg": {
+        "precision": 0.9242974496593908,
+        "recall": 0.8778888888888889,
+        "f1-score": 0.8994955041676189,
+        "support": 3000.0
+      },
+      "weighted avg": {
+        "precision": 0.955283387806939,
+        "recall": 0.956,
+        "f1-score": 0.9549353177986939,
+        "support": 3000.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        1775,
+        0,
+        0,
+        2,
+        23
+      ],
+      [
+        0,
+        600,
+        0,
+        0,
+        0
+      ],
+      [
+        16,
+        0,
+        265,
+        19,
+        0
+      ],
+      [
+        27,
+        0,
+        2,
+        121,
+        0
+      ],
+      [
+        43,
+        0,
+        0,
+        0,
+        107
+      ]
+    ]
+  },
+  "verification_metrics": {
+    "post_lenient_fpr_pct": 0.0556,
+    "post_strict_fpr_pct": 0.0,
+    "post_lenient_false_alarms": 1,
+    "relative_fpr_reduction_pct": 96.0,
+    "absolute_fpr_reduction_pct_pts": 1.3333,
+    "retained_attacks": 650,
+    "post_verification_recall_pct": 54.17,
+    "recall_cost_pct": 38.67,
+    "decisions": {
+      "CONFIRM": 0,
+      "REDUCE": 651,
+      "REJECT": 488
+    }
+  },
+  "signal_degradation_analysis": {
+    "rule_signal_r": {
+      "mean": 0.751,
+      "std": 0.157,
+      "finding": "Robust. MITRE ATT&CK technique port signatures generalize reliably."
+    },
+    "statistical_signal_s": {
+      "mean": 0.414,
+      "std": 0.339,
+      "finding": "Moderate domain shift. Network throughput scale differences slightly depress anomaly score."
+    },
+    "behavioural_signal_b": {
+      "mean": 0.067,
+      "std": 0.061,
+      "finding": "Adaptive. Rolling causal baseline rapidly establishes host distribution."
+    },
+    "explanation_signal_e": {
+      "mean": 0.587,
+      "std": 0.201,
+      "finding": "Strong stability. Primary SHAP attribution mass remains aligned with attack semantics."
+    }
+  },
+  "cross_dataset_comparison": {
+    "cicids2017": {
+      "baseline_fpr_pct": 1.3721,
+      "post_verification_fpr_pct": 0.0167,
+      "relative_reduction_pct": 98.79,
+      "recall_cost_pct": 2.39
+    },
+    "cse_cic_ids2018": {
+      "baseline_fpr_pct": 1.3889,
+      "post_verification_fpr_pct": 0.0556,
+      "relative_reduction_pct": 96.0,
+      "recall_cost_pct": 38.67
+    }
+  }
+}

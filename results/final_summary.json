@@ -1,0 +1,110 @@
+{
+  "project": "TRUST-SOC",
+  "title": "A Trust-Aware, Verification-Driven Detection Pipeline for Security Operations Centers",
+  "primary_metric": {
+    "metric_name": "False-Positive Rate (FPR) Reduction",
+    "cicids2017": {
+      "baseline_standalone_fpr_pct": 1.3721,
+      "baseline_false_alarms": 247,
+      "total_benign_flows": 18001,
+      "post_verification_lenient_fpr_pct": 0.0167,
+      "post_verification_strict_fpr_pct": 0.0,
+      "surviving_false_alarms_lenient": 3,
+      "surviving_false_alarms_strict": 0,
+      "relative_fpr_reduction_pct": 98.79,
+      "absolute_fpr_reduction_pct_pts": 1.3555,
+      "baseline_attack_recall_pct": 100.0,
+      "post_verification_recall_pct": 97.6,
+      "recall_cost_pct": 2.39,
+      "cohens_kappa": 0.608,
+      "cohens_kappa_interpretation": "Substantial agreement between Detection & Verification agents"
+    },
+    "cse_cic_ids2018_cross_dataset": {
+      "baseline_standalone_fpr_pct": 1.3889,
+      "post_verification_lenient_fpr_pct": 0.0556,
+      "relative_fpr_reduction_pct": 96.0,
+      "absolute_fpr_reduction_pct_pts": 1.3333,
+      "recall_cost_pct": 38.67,
+      "port_scan_status": "Not Available in 2018 dataset (5 of 6 common classes evaluated)"
+    }
+  },
+  "detection_quality": {
+    "baseline_model": "Random Forest (n_estimators=100, max_depth=18)",
+    "cicids2017_accuracy_pct": 99.88,
+    "cicids2017_macro_f1": 0.9988,
+    "cse_cic_ids2018_zero_shot_accuracy_pct": 95.6,
+    "cse_cic_ids2018_zero_shot_macro_f1": 0.8995
+  },
+  "verification_agent": {
+    "decision_thresholds": {
+      "confirm_threshold": 0.7,
+      "reduce_threshold": 0.4,
+      "contradiction_threshold": 0.2
+    },
+    "tuned_signal_weights": {
+      "r_rule": 0.3,
+      "s_statistical": 0.25,
+      "b_behavioural": 0.25,
+      "e_explanation": 0.2
+    },
+    "ablation_comparison": {
+      "full_four_signal_system_fpr_reduction_pct": 98.79,
+      "rule_only_fpr_reduction_pct": 52.4,
+      "statistical_only_fpr_reduction_pct": 61.2,
+      "behavioural_only_fpr_reduction_pct": 58.1,
+      "explanation_only_fpr_reduction_pct": 47.3
+    }
+  },
+  "confidence_scoring_and_prioritisation": {
+    "composite_formula": "C = 0.40*p_d + 0.40*p_v + 0.20*r_corr",
+    "bands": {
+      "HIGH (C >= 0.80)": "Auto-escalated to Tier-1 SOC queue",
+      "MEDIUM (0.50 <= C < 0.80)": "Queued for analyst triage review",
+      "LOW (C < 0.50)": "Filtered / Context-enriched non-escalation"
+    },
+    "test_split_distribution": {
+      "HIGH": {
+        "count": 11000,
+        "pct": 86.74
+      },
+      "MEDIUM": {
+        "count": 1492,
+        "pct": 11.76
+      },
+      "LOW": {
+        "count": 190,
+        "pct": 1.5
+      }
+    }
+  },
+  "system_performance": {
+    "environment": {
+      "os": "Windows 10 (10.0.19045)",
+      "processor": "Intel64 Family 6 Model 126 Stepping 5, GenuineIntel",
+      "cpu_cores": 4,
+      "python_version": "3.13.3",
+      "machine": "AMD64"
+    },
+    "per_alert_latency": {
+      "p50_total_live_pipeline_ms": 123.736,
+      "p95_total_live_pipeline_ms": 200.12,
+      "shap_explanation_p50_ms": 65.311,
+      "detection_rf_p50_ms": 42.494,
+      "verification_agent_p50_ms": 0.012,
+      "on_demand_reportlab_pdf_p50_ms": 40.678
+    },
+    "api_concurrency": {
+      "status": "completed",
+      "concurrent_workers": 4,
+      "total_requests": 60,
+      "successful_requests": 60,
+      "errors": 0,
+      "duration_seconds": 5.309,
+      "requests_per_second": 11.3,
+      "mean_response_ms": 337.93,
+      "p50_response_ms": 47.59,
+      "p95_response_ms": 3334.89,
+      "p99_response_ms": 3496.63
+    }
+  }
+}
