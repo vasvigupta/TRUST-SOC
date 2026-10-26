@@ -1,0 +1,69 @@
+{
+  "total_alerts": 12682,
+  "matrix": {
+    "CONFIRM": {
+      "HIGH": 4566,
+      "MEDIUM": 7,
+      "LOW": 0
+    },
+    "REDUCE": {
+      "HIGH": 7539,
+      "MEDIUM": 24,
+      "LOW": 4
+    },
+    "REJECT": {
+      "HIGH": 358,
+      "MEDIUM": 169,
+      "LOW": 15
+    }
+  },
+  "matrix_breakdown": {
+    "CONFIRM": {
+      "HIGH": {
+        "attack": 4566,
+        "false_alarm": 0
+      },
+      "MEDIUM": {
+        "attack": 7,
+        "false_alarm": 0
+      },
+      "LOW": {
+        "attack": 0,
+        "false_alarm": 0
+      }
+    },
+    "REDUCE": {
+      "HIGH": {
+        "attack": 7539,
+        "false_alarm": 0
+      },
+      "MEDIUM": {
+        "attack": 21,
+        "false_alarm": 3
+      },
+      "LOW": {
+        "attack": 4,
+        "false_alarm": 0
+      }
+    },
+    "REJECT": {
+      "HIGH": {
+        "attack": 296,
+        "false_alarm": 62
+      },
+      "MEDIUM": {
+        "attack": 2,
+        "false_alarm": 167
+      },
+      "LOW": {
+        "attack": 0,
+        "false_alarm": 15
+      }
+    }
+  },
+  "band_distribution": {
+    "HIGH": 11000,
+    "MEDIUM": 1492,
+    "LOW": 190
+  }
+}

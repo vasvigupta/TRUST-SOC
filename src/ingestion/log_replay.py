@@ -36,6 +36,9 @@ from src.schemas.alert import create_empty_alert, validate_alert
 from src.detection.model import DetectionAgent
 from src.explainability.shap_explainer import TrustShapExplainer
 from src.verification.verification_agent import VerificationAgent
+from src.scoring.confidence_scorer import ConfidenceScoringEngine
+from src.database.db import init_db
+from src.database.alert_store import insert_alert
 
 log = logging.getLogger("TRUST-SOC.replay")
 
@@ -74,6 +77,8 @@ class LogReplaySimulator:
 
         self.detector = DetectionAgent.load(MODEL_PATH)
         self.verifier = VerificationAgent()
+        self.scorer = ConfidenceScoringEngine()
+        init_db()
 
         if self.enable_shap:
             self.explainer = TrustShapExplainer(self.detector)
@@ -202,6 +207,12 @@ class LogReplaySimulator:
             "stage": "verification",
             "event": f"Verification completed: {ver_block['decision']} (p_v={ver_block['p_v']})"
         })
+
+        # 6. Confidence Scoring Engine (Milestone 3 Active)
+        self.scorer.score_alert(alert)
+
+        # 7. Persist to SQLite Database (Milestone 3 Active)
+        insert_alert(alert)
 
         # Validate schema contract
         validate_alert(alert)

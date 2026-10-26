@@ -1,6 +1,6 @@
 # TRUST-SOC: A Trust-Aware, Verification-Driven Detection Pipeline for Security Operations Centers
 
-> **BTech CSE Micro-Project — Milestones 1 & 2 Deliverables**  
+> **BTech CSE Micro-Project — Milestones 1, 2 & 3 Deliverables**  
 > **Team**: Madhav Bhardwaj, Vasvi Gupta, Anushka Saxena  
 > **Project Guide**: Mr. Mohit Tiwari  
 > **Institution**: Bharati Vidyapeeth's College of Engineering (BVCOE), New Delhi  
@@ -27,7 +27,7 @@ DETECT  ──►  VERIFY  ──►  EXPLAIN  ──►  PRIORITIZE
 
 ---
 
-## 2. End-to-End Pipeline Architecture (Milestones 1 & 2)
+## 2. End-to-End Pipeline Architecture (Milestones 1, 2 & 3)
 
 ```text
 CICIDS2017 (TrafficLabelling / GeneratedLabelledFlows CSVs)
@@ -58,8 +58,16 @@ CICIDS2017 (TrafficLabelling / GeneratedLabelledFlows CSVs)
         CONFIRM  │  REDUCE  │  REJECT
               │
               ▼
-[6] Canonical Log Replay & Audit Feed (Stage 1.8 & 2.6)
-    (Python generator + queue.Queue -> Canonical Alert Schema with full audit trail)
+[6] Confidence Scoring Engine (Stage 3.1 & 3.2)
+    C = 0.40 * p_d + 0.40 * p_v + 0.20 * r_corr
+              │
+              ▼
+        HIGH (C >= 0.80) │ MEDIUM (0.50 <= C < 0.80) │ LOW (C < 0.50)
+              │
+              ├──────────────────────────────┐
+              ▼                              ▼
+[7] Evidence-Linked Report Generator   [8] SQLite Storage Layer
+    (JSON + ReportLab PDF per alert)       (WAL mode, alerts/reports/audit_events)
 ```
 
 ---
@@ -73,15 +81,17 @@ CICIDS2017 (TrafficLabelling / GeneratedLabelledFlows CSVs)
 | **Machine Learning** | scikit-learn, XGBoost | Random Forest baseline, XGBoost alternative; Isolation Forest anomaly model |
 | **Explainability** | SHAP (`shap.TreeExplainer`) | Fast, exact Shapley feature attributions |
 | **Streaming / Ingestion** | Python generator + `queue.Queue` | Memory-bounded, Kafka-compatible replay |
-| **Testing** | stdlib `unittest` | Formal automated test suite (28 tests) |
-| **Storage / DB** | SQLite (`trust_soc.db`) | Relational persistence of alerts and reports |
-| **Optional UI** | Streamlit (`.streamlit/config.toml`) | Light-theme prototype interface |
+| **Confidence Scoring** | NumPy / pure Python | Fused composite scoring ($C$) and 3x3 Prioritisation Matrix |
+| **Reporting** | ReportLab | Publication-quality PDF evidence reports (WeasyPrint NOT used) |
+| **Database** | SQLite (`trust_soc.db`) | Relational persistence with WAL concurrency (MongoDB NOT used) |
+| **Testing** | stdlib `unittest` | Formal automated test suite (41/41 passing tests) |
+| **Optional UI** | Streamlit (`.streamlit/config.toml`) | Milestone 1 light-theme prototype interface |
 
 ---
 
 ## 4. Light Theme Design Tokens
 
-TRUST-SOC enforces a clean, accessible **light theme** everywhere (visualizations, UI, and future PDF reports):
+TRUST-SOC enforces a clean, accessible **light theme** everywhere (visualizations, UI, and PDF reports):
 
 ```text
 --bg            #F7F9FC   Page background
@@ -94,9 +104,9 @@ TRUST-SOC enforces a clean, accessible **light theme** everywhere (visualization
 --accent        #2F6FB3   Interactive blue accent
 
 Confidence Bands:
---high          #B42318   (red)    Label "HIGH"
---medium        #B54708   (amber)  Label "MEDIUM"
---low           #2E7D5B   (green)  Label "LOW"
+--high          #B42318   (red)    Label "HIGH" (C >= 0.80)
+--medium        #B54708   (amber)  Label "MEDIUM" (0.50 <= C < 0.80)
+--low           #2E7D5B   (green)  Label "LOW" (C < 0.50)
 
 Verification Decisions:
 CONFIRM         #1F6F43   (forest green)  Verified attack alert
@@ -162,42 +172,64 @@ Evaluated strictly once on the held-out test split (30,448 flows: 18,001 benign,
 | **Recall Cost** | — | **2.39%** | 63.26% |
 | **Cohen's Kappa Agreement** | — | **0.608** | — |
 
-### Per-Class False Alarm Breakdown (Frozen Test Set)
-
-| Predicted Class | Baseline False Alarms | Rejected False Alarms | FA Reduction (%) | Baseline Attack Alerts | Attacks Retained | Retention Rate (%) |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Botnet** | 217 | 217 | **100.0%** | 293 | 5 | 1.71% |
-| **Brute Force** | 9 | 9 | **100.0%** | 2,073 | 2,063 | **99.52%** |
-| **DoS/DDoS** | 6 | 3 | **50.0%** | 5,999 | 5,999 | **100.00%** |
-| **Port Scan** | 0 | 0 | **100.0%** | 3,748 | 3,748 | **100.00%** |
-| **Web Attack** | 15 | 15 | **100.0%** | 322 | 322 | **100.00%** |
-| **Total** | **247** | **244** | **98.79%** | **12,435** | **12,137** | **97.60%** |
-
-> **Scientific Honesty Note on Recall Cost**: The 2.39% recall cost is driven almost exclusively by Botnet traffic in CICIDS2017 (Ares keepalive packets), which closely mimic benign beaconing. For all other attack classes (DoS, Port Scan, Web Attack, Brute Force), attack retention is **99.5% to 100.0%**.
-
 ---
 
-## 7. Validation Split Ablation Study
+## 7. Milestone 3: Confidence Scoring, Evidence Reports & Database
 
-Evaluated across 12,660 validation alerts (223 baseline false alarms, 12,437 true attacks):
+### 7.1 Composite Confidence Formula (Section 4.3)
 
-| Configuration | FA Rejected | FA Remaining (Lenient) | Post FPR (Lenient) | Rel FPR Reduction (%) | Attacks Retained | Recall Cost (%) |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Signal (a) Alone [Rule]** | 167 | 56 | 0.311% | **74.9%** | 12,436 | 0.01% |
-| **Signal (b) Alone [Statistical]** | 221 | 2 | 0.011% | **99.1%** | 4,101 | 66.97% |
-| **Signal (c) Alone [Behavioural]** | 217 | 6 | 0.033% | **97.3%** | 11,373 | 8.55% |
-| **Signal (d) Alone [Explanation]** | 151 | 72 | 0.400% | **67.7%** | 11,517 | 7.39% |
-| **Leave-One-Out: Without (a)** | 220 | 3 | 0.017% | **98.7%** | 11,064 | 11.03% |
-| **Leave-One-Out: Without (b)** | 179 | 44 | 0.244% | **80.3%** | 12,423 | 0.11% |
-| **Leave-One-Out: Without (c)** | 179 | 44 | 0.244% | **80.3%** | 11,800 | 5.12% |
-| **Leave-One-Out: Without (d)** | 220 | 3 | 0.017% | **98.7%** | 11,976 | 3.70% |
-| **Full Fused Mechanism (a+b+c+d)** | **220** | **3** | **0.017%** | **98.7%** | **12,149** | **2.31%** |
+$$C = \alpha \cdot p_d + \beta \cdot p_v + \gamma \cdot r_{\text{corr}}$$
+Initial weights: $\alpha = 0.40, \beta = 0.40, \gamma = 0.20$ ($\alpha + \beta + \gamma = 1.0$).
+
+- **HIGH Band ($C \ge 0.80$):** Auto-escalated on SOC dashboard (`AUTO_ESCALATE`).
+- **MEDIUM Band ($0.50 \le C < 0.80$):** Queued for analyst triage (`ANALYST_QUEUE`).
+- **LOW Band ($C < 0.50$):** Logged with evidence, suppressed from alerting (`LOG_ONLY`).
+
+### 7.2 Alert Prioritisation Matrix (Stage 3.2)
+
+Evaluated on 12,682 test alerts:
+
+| Verification Verdict | $p_d$ HIGH (>=0.80) | $p_d$ MEDIUM (0.50–0.80) | $p_d$ LOW (<0.50) | Operational Triage Action |
+|---|:---:|:---:|:---:|---|
+| **CONFIRM** | **4,566** (4,566 attacks / 0 FAs) | **7** | **0** | **Urgent Auto-Escalate** / High Priority Queue |
+| **REDUCE** | **7,539** (7,539 attacks / 0 FAs) | **24** | **4** | **Suspicious Review** / Standard Queue |
+| **REJECT** | **358** (296 attacks / 62 FAs) | **169** | **15** | **Dropped False Alarm** (Audit Logged) |
+
+- **Band Distribution on Test Set:**
+  - HIGH Band ($C \ge 0.80$): **11,000 alerts (86.7%)**
+  - MEDIUM Band ($0.50 \le C < 0.80$): **1,492 alerts (11.8%)**
+  - LOW Band ($C < 0.50$): **190 alerts (1.5%)**
+
+### 7.3 SQLite Relational Storage (`trust_soc.db`)
+
+Managed via `src/database/alert_store.py` with WAL concurrency mode:
+- **`alerts`**: Primary alert table with queryable columns (`alert_id`, `src_ip`, `dst_ip`, `src_port`, `dst_port`, `protocol`, `predicted_class`, `detection_probability`, `verification_decision`, `composite_confidence`, `confidence_band`, `status`, `raw_json`).
+- **`reports`**: Linked report documents (`report_id`, `alert_id`, `generated_at`, `json_path`, `pdf_path`, `summary`).
+- **`audit_events`**: Chronological forensic audit log entries for every lifecycle stage.
+
+### 7.4 Evidence-Linked Report Generator (ReportLab PDF + JSON)
+
+Produces two exports per alert:
+1. **JSON Report** (`results/reports/json/{alert_id}.json`): Complete canonical machine-readable payload, MITRE ATT&CK mapping, SHAP feature attributions, and audit trail.
+2. **ReportLab PDF Report** (`results/reports/pdf/{alert_id}.pdf`): Light-theme, publication-quality triage document containing:
+   - Deep navy executive header banner (`#1F3864`).
+   - Triage Summary Card with Confidence and Decision badges.
+   - 5-Tuple Network Traffic Context table.
+   - Detection Agent class probabilities.
+   - Verification Agent 4-signal breakdown and deterministic rationale.
+   - SHAP Top-5 feature attribution table.
+   - Cryptographic forensic audit timeline.
+
+Sample reports generated:
+- `[HIGH] Brute Force (C=0.917, HIGH, CONFIRM)`: `results/reports/pdf/alert-2094afc9_401.pdf`
+- `[MEDIUM] Botnet (C=0.747, MEDIUM, REJECT)`: `results/reports/pdf/alert-20d1dc9b_68.pdf`
+- `[REJECT] Botnet (C=0.342, LOW, REJECT)`: `results/reports/pdf/alert-f7af2e23_82.pdf`
 
 ---
 
 ## 8. Canonical Alert Schema Contract (Section 5)
 
-Every replayed and verified flow produces a compliant Canonical Alert dictionary:
+Every replayed, verified, and scored flow produces a compliant Canonical Alert dictionary:
 
 ```json
 {
@@ -238,11 +270,17 @@ Every replayed and verified flow produces a compliant Canonical Alert dictionary
     },
     "rationale": "Decision CONFIRM (agreement p_v=0.842). Strong multi-signal consensus corroborates attack..."
   },
-  "scoring": { "composite": 0.0, "band": "LOW" },
+  "scoring": {
+    "composite": 0.8810,
+    "band": "HIGH",
+    "components": { "p_d": 0.98, "p_v": 0.8425, "r_corr": 0.90, "alpha": 0.4, "beta": 0.4, "gamma": 0.2 },
+    "action": "AUTO_ESCALATE"
+  },
   "audit_trail": [
     { "ts": "...", "stage": "ingestion", "event": "Flow record ingested and schema initialized" },
     { "ts": "...", "stage": "detection", "event": "Classified as Port Scan (p=0.98)" },
-    { "ts": "...", "stage": "verification", "event": "Verification completed: CONFIRM (p_v=0.8425)" }
+    { "ts": "...", "stage": "verification", "event": "Verification completed: CONFIRM (p_v=0.8425)" },
+    { "ts": "...", "stage": "scoring", "event": "Confidence scored: C=0.8810 (HIGH) -> AUTO_ESCALATE" }
   ],
   "ground_truth": { "original_label": "PortScan", "project_class": "Port Scan", "is_attack": true }
 }
@@ -278,16 +316,22 @@ python run.py evaluate
 # 5. Run SHAP global and per-prediction explainability analysis
 python run.py explain
 
-# 6. Run live flow-by-flow Log Replay simulation with Verification Agent
+# 6. Run live flow-by-flow Log Replay simulation with live verification and SQLite persistence
 python run.py replay
 
 # 7. Evaluate Verification Agent & measure FPR reduction on frozen test split
 python run.py verify
 
-# 8. Run full automated standard-library unit test suite (28 tests)
+# 8. Evaluate Confidence Scoring Engine & Prioritisation Matrix
+python run.py score
+
+# 9. Generate Evidence Reports in JSON & ReportLab PDF
+python run.py report
+
+# 10. Run full automated standard-library unit test suite (41 tests)
 python -m unittest discover -s tests -v
 
-# 9. Launch optional Streamlit demo UI (light theme)
+# 11. Launch optional Streamlit demo UI (light theme)
 streamlit run app/streamlit_app.py
 ```
 
@@ -295,7 +339,7 @@ streamlit run app/streamlit_app.py
 
 ## 10. Automated Test Suite
 
-Standard library `unittest` suite passing 100% of tests (28/28):
+Standard library `unittest` suite passing 100% of tests (41/41):
 
 ```text
 test_detect_single_flow_interface (tests.test_detection)                 ... ok
@@ -326,30 +370,35 @@ test_explanation_signal_contract_and_bounds (tests.test_verification)   ... ok
 test_rule_signal_contract_and_bounds (tests.test_verification)          ... ok
 test_rule_signal_whitelisted_dns_contradiction (tests.test_verification) ... ok
 test_statistical_signal_contract_and_bounds (tests.test_verification)   ... ok
+test_composite_confidence_bounds (tests.test_scoring)                     ... ok
+test_exact_threshold_transitions (tests.test_scoring)                    ... ok
+test_monotonicity (tests.test_scoring)                                    ... ok
+test_prioritisation_actions (tests.test_scoring)                          ... ok
+test_weight_sum_validation (tests.test_scoring)                           ... ok
+test_db_stats_aggregation (tests.test_database)                          ... ok
+test_insert_and_get_alert (tests.test_database)                          ... ok
+test_list_alerts_with_filters (tests.test_database)                      ... ok
+test_report_insert_and_retrieval (tests.test_database)                   ... ok
+test_update_alert_status (tests.test_database)                           ... ok
+test_json_report_generation (tests.test_reporting)                       ... ok
+test_pdf_report_generation (tests.test_reporting)                        ... ok
+test_both_reports_generation_and_db_link (tests.test_reporting)          ... ok
 
-Ran 28 tests in 1.514s — OK (All tests passing)
+Ran 41 tests in 1.750s — OK (All tests passing)
 ```
 
 ---
 
-## 11. Milestone 2 Exit Gate Checklist
+## 11. Milestone 3 Exit Gate Checklist
 
-- [x] All 4 verification signals implemented with strict contract adherence ($[0, 1]$, strong contradiction flag, details dict).
-- [x] Zero inspection of `ground_truth` by any signal or verification agent method (verified by unit test).
-- [x] Strict independence: signals $r, s, b$ form their opinions without inspecting $p_d$.
-- [x] Isolation Forest trained strictly on benign training flows only.
-- [x] Host behavioural baselines built from benign training traffic only; rolling window causally respects time.
-- [x] Decision table matches Section 4.2: CONFIRM, REDUCE, REJECT.
-- [x] Deterministic rationale generated from signal consensus/discordance templates.
-- [x] Signal weights and thresholds tuned exclusively on the Validation split.
-- [x] Full ablation study executed and documented (`ablation_summary.json` and `ablation_report.md`).
-- [x] Frozen test split evaluated strictly once with verified primary success metric:
-  - Baseline FPR: **1.3721%** (247 false alarms)
-  - Post-Verification Lenient FPR: **0.0167%** (3 false alarms)
-  - **Relative FPR Reduction: 98.79%**
-  - **Absolute FPR Reduction: 1.3555 percentage points**
-  - Recall Cost: **2.3942%**
-  - Cohen's Kappa: **0.608**
-- [x] Light-theme comparative visualization saved to `results/verification/fpr_reduction.png`.
-- [x] CLI entry point `python run.py verify` operational.
-- [x] 100% of unit tests passing in stdlib `unittest` (28/28).
+- [x] Confidence Scoring Engine implemented with verified formula $C = \alpha p_d + \beta p_v + \gamma r_{\text{corr}}$.
+- [x] High/Medium/Low confidence bands properly assigned at 0.80 and 0.50 thresholds.
+- [x] Alert Prioritisation Matrix ($3 \times 3$ interaction) evaluated on test split.
+- [x] SQLite database schema with WAL mode enabled (`alerts`, `reports`, `audit_events`).
+- [x] Complete CRUD operations implemented in `alert_store.py`.
+- [x] Evidence report generator producing both JSON and ReportLab PDF documents.
+- [x] Light theme strictly enforced across all PDF reports (ReportLab).
+- [x] MITRE ATT&CK techniques and tactics mapped and embedded in reports.
+- [x] Live log replay simulator updated to score and persist alerts.
+- [x] CLI entry points `python run.py score` and `python run.py report` operational.
+- [x] 100% of unit tests passing in stdlib `unittest` (41/41).

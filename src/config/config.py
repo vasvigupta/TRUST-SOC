@@ -23,6 +23,8 @@ METRICS_DIR   = RESULTS_DIR / "metrics"
 CM_DIR        = RESULTS_DIR / "confusion_matrix"
 SHAP_DIR      = RESULTS_DIR / "shap"
 REPORTS_DIR   = RESULTS_DIR / "reports"
+REPORTS_JSON_DIR = REPORTS_DIR / "json"
+REPORTS_PDF_DIR  = REPORTS_DIR / "pdf"
 VERIFICATION_RESULTS_DIR = RESULTS_DIR / "verification"
 
 # Processed artefacts

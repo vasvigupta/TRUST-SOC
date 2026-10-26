@@ -1,0 +1,291 @@
+{
+  "report_id": "REP-alert-2094afc9_401",
+  "generated_at": "2026-10-26T16:31:27.226122+00:00",
+  "mitre_attack": {
+    "technique_id": "T1110",
+    "technique_name": "Brute Force",
+    "tactic": "Credential Access"
+  },
+  "alert": {
+    "schema_version": "1.0",
+    "alert_id": "alert-2094afc9:401",
+    "ingested_at": "2026-10-26T16:31:27.140271+00:00",
+    "flow": {
+      "source_file": "Tuesday-WorkingHours.pcap_ISCX.csv",
+      "row_index": 401,
+      "fields_available": {
+        "Flow ID": "172.16.0.1-192.168.10.50-48568-22-6",
+        "Source IP": "172.16.0.1",
+        "Source Port": 48568,
+        "Destination IP": "192.168.10.50",
+        "Destination Port": 22,
+        "Protocol": 6,
+        "Timestamp": "4/7/2017 2:32"
+      },
+      "features": {
+        "Flow Duration": 11837373.0,
+        "Total Fwd Packets": 21.0,
+        "Total Backward Packets": 32.0,
+        "Total Length of Fwd Packets": 2008.0,
+        "Total Length of Bwd Packets": 2745.0,
+        "Fwd Packet Length Max": 640.0,
+        "Fwd Packet Length Min": 0.0,
+        "Fwd Packet Length Mean": 95.61905,
+        "Fwd Packet Length Std": 140.04517,
+        "Bwd Packet Length Max": 976.0,
+        "Bwd Packet Length Min": 0.0,
+        "Bwd Packet Length Mean": 85.78125,
+        "Bwd Packet Length Std": 220.24059,
+        "Flow Bytes/s": 401.5249,
+        "Flow Packets/s": 4.477345,
+        "Flow IAT Mean": 227641.78,
+        "Flow IAT Std": 633402.9,
+        "Flow IAT Max": 2528431.0,
+        "Flow IAT Min": 18.0,
+        "Fwd IAT Total": 10600000.0,
+        "Fwd IAT Mean": 527803.2,
+        "Fwd IAT Std": 951555.2,
+        "Fwd IAT Max": 2574047.0,
+        "Fwd IAT Min": 382.0,
+        "Bwd IAT Total": 11800000.0,
+        "Bwd IAT Mean": 381848.12,
+        "Bwd IAT Std": 788225.44,
+        "Bwd IAT Max": 2528431.0,
+        "Bwd IAT Min": 43.0,
+        "Fwd PSH Flags": 0.0,
+        "Fwd URG Flags": 0.0,
+        "Fwd Header Length": 680.0,
+        "Bwd Header Length": 1032.0,
+        "Fwd Packets/s": 1.7740422,
+        "Bwd Packets/s": 2.7033024,
+        "Min Packet Length": 0.0,
+        "Max Packet Length": 976.0,
+        "Packet Length Mean": 88.01852,
+        "Packet Length Std": 189.59027,
+        "Packet Length Variance": 35944.473,
+        "FIN Flag Count": 0.0,
+        "SYN Flag Count": 0.0,
+        "RST Flag Count": 0.0,
+        "PSH Flag Count": 1.0,
+        "ACK Flag Count": 0.0,
+        "URG Flag Count": 0.0,
+        "CWE Flag Count": 0.0,
+        "ECE Flag Count": 0.0,
+        "Down/Up Ratio": 1.0,
+        "Average Packet Size": 89.679245,
+        "Avg Fwd Segment Size": 95.61905,
+        "Avg Bwd Segment Size": 85.78125,
+        "Subflow Fwd Packets": 21.0,
+        "Subflow Fwd Bytes": 2008.0,
+        "Subflow Bwd Packets": 32.0,
+        "Subflow Bwd Bytes": 2745.0,
+        "Init_Win_bytes_forward": 29200.0,
+        "Init_Win_bytes_backward": 247.0,
+        "act_data_pkt_fwd": 16.0,
+        "min_seg_size_forward": 32.0,
+        "Active Mean": 0.0,
+        "Active Std": 0.0,
+        "Active Max": 0.0,
+        "Active Min": 0.0,
+        "Idle Mean": 0.0,
+        "Idle Std": 0.0,
+        "Idle Max": 0.0,
+        "Idle Min": 0.0
+      }
+    },
+    "detection": {
+      "model": "random_forest",
+      "predicted_class": "Brute Force",
+      "probability": 1.0,
+      "class_probabilities": {
+        "Benign": 0.0,
+        "Botnet": 0.0,
+        "Brute Force": 1.0,
+        "DoS/DDoS": 0.0,
+        "Port Scan": 0.0,
+        "Web Attack": 0.0
+      },
+      "top_features": [
+        {
+          "rank": 1,
+          "feature": "min_seg_size_forward",
+          "shap_value": 0.1099,
+          "feature_value": 32.0,
+          "scaled_value": 1.2799
+        },
+        {
+          "rank": 2,
+          "feature": "Bwd Header Length",
+          "shap_value": 0.0587,
+          "feature_value": 1032.0,
+          "scaled_value": 1.2365
+        },
+        {
+          "rank": 3,
+          "feature": "Fwd Header Length",
+          "shap_value": 0.0455,
+          "feature_value": 680.0,
+          "scaled_value": 1.0919
+        },
+        {
+          "rank": 4,
+          "feature": "Init_Win_bytes_backward",
+          "shap_value": 0.0423,
+          "feature_value": 247.0,
+          "scaled_value": -0.1489
+        },
+        {
+          "rank": 5,
+          "feature": "Subflow Fwd Bytes",
+          "shap_value": 0.0392,
+          "feature_value": 2008.0,
+          "scaled_value": 0.207
+        }
+      ],
+      "is_alert": true
+    },
+    "verification": {
+      "decision": "CONFIRM",
+      "p_v": 0.7936,
+      "signals": {
+        "rule": {
+          "score": 1.0,
+          "strongly_contradictory": false,
+          "details": {
+            "matched_rules": [
+              "Target port 22 matches credential services (FTP/SSH)",
+              "Repeated handshake/credential exchange (21 pkts)",
+              "Target is central auth server (192.168.10.50)"
+            ],
+            "violated_rules": [],
+            "asset_criticality": "HIGH",
+            "mitre_technique": {
+              "technique_id": "T1110",
+              "technique_name": "Brute Force",
+              "tactic": "Credential Access"
+            }
+          }
+        },
+        "statistical": {
+          "score": 0.397,
+          "strongly_contradictory": false,
+          "details": {
+            "raw_anomaly_score": 0.0793,
+            "inlier_threshold_q95": 0.1838,
+            "outlier_threshold_q01": -0.0793,
+            "interpretation": "Traffic statistically conforms to benign baseline (contradicts attack)"
+          }
+        },
+        "behavioural": {
+          "score": 0.8833,
+          "strongly_contradictory": false,
+          "details": {
+            "profile_type": "host_specific",
+            "host": "172.16.0.1",
+            "rolling_window_depth": 1,
+            "flow_deviation": 0.8833,
+            "rolling_deviation": 0.8833,
+            "metric_breakdown": {
+              "Flow Packets/s": {
+                "observed": 4.48,
+                "baseline_mean": 0.36,
+                "normalized_deviation": 1.0
+              },
+              "Flow Bytes/s": {
+                "observed": 401.52,
+                "baseline_mean": 0.0,
+                "normalized_deviation": 1.0
+              },
+              "Flow Duration": {
+                "observed": 11837373.0,
+                "baseline_mean": 9095562.0,
+                "normalized_deviation": 0.533
+              },
+              "Packet Length Mean": {
+                "observed": 88.02,
+                "baseline_mean": 0.0,
+                "normalized_deviation": 1.0
+              }
+            },
+            "interpretation": "Behavioural surge detected (host_specific) - corroborates attack"
+          }
+        },
+        "explanation": {
+          "score": 0.8674,
+          "strongly_contradictory": false,
+          "details": {
+            "expected_families": [
+              "Total Fwd Packets",
+              "Packet Length",
+              "Header Length",
+              "Flow Duration",
+              "IAT",
+              "Init_Win_bytes",
+              "min_seg_size",
+              "Segment Size"
+            ],
+            "consistent_features": [
+              "min_seg_size_forward",
+              "Bwd Header Length",
+              "Fwd Header Length",
+              "Init_Win_bytes_backward"
+            ],
+            "inconsistent_features": [
+              "Subflow Fwd Bytes"
+            ],
+            "consistency_ratio": 0.8674,
+            "interpretation": "Explanation (86.7%) strongly aligns with domain expectations for Brute Force"
+          }
+        }
+      },
+      "rationale": "Decision CONFIRM (agreement p_v=0.794). Strong multi-signal consensus corroborates attack: rule=1.00, statistical=0.40, behavioural=0.88, explanation=0.87. No strongly contradictory signals detected."
+    },
+    "scoring": {
+      "composite": 0.9174,
+      "band": "HIGH",
+      "components": {
+        "p_d": 1.0,
+        "p_v": 0.7936,
+        "r_corr": 1.0,
+        "alpha": 0.4,
+        "beta": 0.4,
+        "gamma": 0.2
+      },
+      "action": "AUTO_ESCALATE",
+      "matrix_action": "URGENT_AUTO_ESCALATE"
+    },
+    "mitre": [],
+    "audit_trail": [
+      {
+        "ts": "2026-10-26T16:31:27.140271+00:00",
+        "stage": "ingestion",
+        "event": "Flow record ingested and schema initialized"
+      },
+      {
+        "ts": "2026-10-26T16:31:27.166829+00:00",
+        "stage": "detection",
+        "event": "Classified as Brute Force (p=1.0)"
+      },
+      {
+        "ts": "2026-10-26T16:31:27.207651+00:00",
+        "stage": "explainability",
+        "event": "Generated top-5 SHAP feature attributions (40.729ms)"
+      },
+      {
+        "ts": "2026-10-26T16:31:27.215097+00:00",
+        "stage": "verification",
+        "event": "Verification completed: CONFIRM (p_v=0.7936)"
+      },
+      {
+        "ts": "2026-10-26T16:31:27.215119+00:00",
+        "stage": "scoring",
+        "event": "Confidence scored: C=0.9174 (HIGH) -> AUTO_ESCALATE"
+      }
+    ],
+    "ground_truth": {
+      "original_label": "SSH-Patator",
+      "project_class": "Benign",
+      "is_attack": false
+    }
+  }
+}

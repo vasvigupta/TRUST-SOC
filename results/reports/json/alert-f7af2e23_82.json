@@ -1,0 +1,290 @@
+{
+  "report_id": "REP-alert-f7af2e23_82",
+  "generated_at": "2026-10-26T16:31:27.279562+00:00",
+  "mitre_attack": {
+    "technique_id": "T1071",
+    "technique_name": "Application Layer Protocol",
+    "tactic": "Command and Control"
+  },
+  "alert": {
+    "schema_version": "1.0",
+    "alert_id": "alert-f7af2e23:82",
+    "ingested_at": "2026-10-26T16:30:59.994155+00:00",
+    "flow": {
+      "source_file": "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
+      "row_index": 82,
+      "fields_available": {
+        "Flow ID": "172.217.11.14-192.168.10.15-80-54489-6",
+        "Source IP": "172.217.11.14",
+        "Source Port": 80,
+        "Destination IP": "192.168.10.15",
+        "Destination Port": 54489,
+        "Protocol": 6,
+        "Timestamp": "7/7/2017 1:31"
+      },
+      "features": {
+        "Flow Duration": 57.0,
+        "Total Fwd Packets": 1.0,
+        "Total Backward Packets": 1.0,
+        "Total Length of Fwd Packets": 6.0,
+        "Total Length of Bwd Packets": 6.0,
+        "Fwd Packet Length Max": 6.0,
+        "Fwd Packet Length Min": 6.0,
+        "Fwd Packet Length Mean": 6.0,
+        "Fwd Packet Length Std": 0.0,
+        "Bwd Packet Length Max": 6.0,
+        "Bwd Packet Length Min": 6.0,
+        "Bwd Packet Length Mean": 6.0,
+        "Bwd Packet Length Std": 0.0,
+        "Flow Bytes/s": 210526.31,
+        "Flow Packets/s": 35087.72,
+        "Flow IAT Mean": 57.0,
+        "Flow IAT Std": 0.0,
+        "Flow IAT Max": 57.0,
+        "Flow IAT Min": 57.0,
+        "Fwd IAT Total": 0.0,
+        "Fwd IAT Mean": 0.0,
+        "Fwd IAT Std": 0.0,
+        "Fwd IAT Max": 0.0,
+        "Fwd IAT Min": 0.0,
+        "Bwd IAT Total": 0.0,
+        "Bwd IAT Mean": 0.0,
+        "Bwd IAT Std": 0.0,
+        "Bwd IAT Max": 0.0,
+        "Bwd IAT Min": 0.0,
+        "Fwd PSH Flags": 0.0,
+        "Fwd URG Flags": 0.0,
+        "Fwd Header Length": 20.0,
+        "Bwd Header Length": 20.0,
+        "Fwd Packets/s": 17543.86,
+        "Bwd Packets/s": 17543.86,
+        "Min Packet Length": 6.0,
+        "Max Packet Length": 6.0,
+        "Packet Length Mean": 6.0,
+        "Packet Length Std": 0.0,
+        "Packet Length Variance": 0.0,
+        "FIN Flag Count": 0.0,
+        "SYN Flag Count": 0.0,
+        "RST Flag Count": 0.0,
+        "PSH Flag Count": 0.0,
+        "ACK Flag Count": 1.0,
+        "URG Flag Count": 1.0,
+        "CWE Flag Count": 0.0,
+        "ECE Flag Count": 0.0,
+        "Down/Up Ratio": 1.0,
+        "Average Packet Size": 9.0,
+        "Avg Fwd Segment Size": 6.0,
+        "Avg Bwd Segment Size": 6.0,
+        "Subflow Fwd Packets": 1.0,
+        "Subflow Fwd Bytes": 6.0,
+        "Subflow Bwd Packets": 1.0,
+        "Subflow Bwd Bytes": 6.0,
+        "Init_Win_bytes_forward": 335.0,
+        "Init_Win_bytes_backward": 258.0,
+        "act_data_pkt_fwd": 0.0,
+        "min_seg_size_forward": 20.0,
+        "Active Mean": 0.0,
+        "Active Std": 0.0,
+        "Active Max": 0.0,
+        "Active Min": 0.0,
+        "Idle Mean": 0.0,
+        "Idle Std": 0.0,
+        "Idle Max": 0.0,
+        "Idle Min": 0.0
+      }
+    },
+    "detection": {
+      "model": "random_forest",
+      "predicted_class": "Botnet",
+      "probability": 0.5448,
+      "class_probabilities": {
+        "Benign": 0.455,
+        "Botnet": 0.5448,
+        "Brute Force": 0.0,
+        "DoS/DDoS": 0.0002,
+        "Port Scan": 0.0,
+        "Web Attack": 0.0
+      },
+      "top_features": [
+        {
+          "rank": 1,
+          "feature": "Init_Win_bytes_backward",
+          "shap_value": 0.072,
+          "feature_value": 258.0,
+          "scaled_value": -0.1471
+        },
+        {
+          "rank": 2,
+          "feature": "min_seg_size_forward",
+          "shap_value": 0.0458,
+          "feature_value": 20.0,
+          "scaled_value": -0.6838
+        },
+        {
+          "rank": 3,
+          "feature": "Average Packet Size",
+          "shap_value": 0.0349,
+          "feature_value": 9.0,
+          "scaled_value": -0.6035
+        },
+        {
+          "rank": 4,
+          "feature": "Subflow Fwd Bytes",
+          "shap_value": 0.0305,
+          "feature_value": 6.0,
+          "scaled_value": -0.2862
+        },
+        {
+          "rank": 5,
+          "feature": "Fwd Packet Length Max",
+          "shap_value": 0.026,
+          "feature_value": 6.0,
+          "scaled_value": -0.3159
+        }
+      ],
+      "is_alert": true
+    },
+    "verification": {
+      "decision": "REJECT",
+      "p_v": 0.2347,
+      "signals": {
+        "rule": {
+          "score": 0.15,
+          "strongly_contradictory": true,
+          "details": {
+            "matched_rules": [
+              "Lightweight beacon payload length (6.0 bytes)"
+            ],
+            "violated_rules": [
+              "Target 192.168.10.15:54489 not associated with botnet C2 traffic",
+              "Internal standard service flow falsely alerted as external botnet"
+            ],
+            "asset_criticality": "STANDARD",
+            "mitre_technique": {
+              "technique_id": "T1071",
+              "technique_name": "Application Layer Protocol",
+              "tactic": "Command and Control"
+            }
+          }
+        },
+        "statistical": {
+          "score": 0.0642,
+          "strongly_contradictory": true,
+          "details": {
+            "raw_anomaly_score": 0.1669,
+            "inlier_threshold_q95": 0.1838,
+            "outlier_threshold_q01": -0.0793,
+            "interpretation": "Traffic statistically conforms to benign baseline (contradicts attack)"
+          }
+        },
+        "behavioural": {
+          "score": 0.028,
+          "strongly_contradictory": true,
+          "details": {
+            "profile_type": "host_specific",
+            "host": "172.217.11.14",
+            "rolling_window_depth": 0,
+            "flow_deviation": 0.028,
+            "rolling_deviation": 0.028,
+            "metric_breakdown": {
+              "Flow Packets/s": {
+                "observed": 35087.72,
+                "baseline_mean": 239444.81,
+                "normalized_deviation": 0.0
+              },
+              "Flow Bytes/s": {
+                "observed": 210526.31,
+                "baseline_mean": 1253319.5,
+                "normalized_deviation": 0.0
+              },
+              "Flow Duration": {
+                "observed": 57.0,
+                "baseline_mean": 1445.97,
+                "normalized_deviation": 0.0
+              },
+              "Packet Length Mean": {
+                "observed": 6.0,
+                "baseline_mean": 4.62,
+                "normalized_deviation": 0.1119
+              }
+            },
+            "interpretation": "Traffic conforms to host_specific historical baseline - contradicts attack"
+          }
+        },
+        "explanation": {
+          "score": 0.8332,
+          "strongly_contradictory": false,
+          "details": {
+            "expected_families": [
+              "IAT",
+              "Packet Length",
+              "Subflow",
+              "Init_Win_bytes",
+              "min_seg_size",
+              "Flow Duration"
+            ],
+            "consistent_features": [
+              "Init_Win_bytes_backward",
+              "min_seg_size_forward",
+              "Subflow Fwd Bytes",
+              "Fwd Packet Length Max"
+            ],
+            "inconsistent_features": [
+              "Average Packet Size"
+            ],
+            "consistency_ratio": 0.8332,
+            "interpretation": "Explanation (83.3%) strongly aligns with domain expectations for Botnet"
+          }
+        }
+      },
+      "rationale": "Decision REJECT (agreement p_v=0.235). Rejected due to 3 strongly contradictory signals (Rule/Context, Statistical Anomaly (IForest), Behavioural Baseline) indicating benign traffic characteristics despite detection alert."
+    },
+    "scoring": {
+      "composite": 0.3418,
+      "band": "LOW",
+      "components": {
+        "p_d": 0.5448,
+        "p_v": 0.2347,
+        "r_corr": 0.15,
+        "alpha": 0.4,
+        "beta": 0.4,
+        "gamma": 0.2
+      },
+      "action": "FALSE_POSITIVE_LOG",
+      "matrix_action": "FALSE_POSITIVE_LOGGED"
+    },
+    "mitre": [],
+    "audit_trail": [
+      {
+        "ts": "2026-10-26T16:30:59.994155+00:00",
+        "stage": "ingestion",
+        "event": "Flow record ingested and schema initialized"
+      },
+      {
+        "ts": "2026-10-26T16:31:00.021276+00:00",
+        "stage": "detection",
+        "event": "Classified as Botnet (p=0.5448)"
+      },
+      {
+        "ts": "2026-10-26T16:31:00.064311+00:00",
+        "stage": "explainability",
+        "event": "Generated top-5 SHAP feature attributions (42.931ms)"
+      },
+      {
+        "ts": "2026-10-26T16:31:00.071733+00:00",
+        "stage": "verification",
+        "event": "Verification completed: REJECT (p_v=0.2347)"
+      },
+      {
+        "ts": "2026-10-26T16:31:00.071754+00:00",
+        "stage": "scoring",
+        "event": "Confidence scored: C=0.3418 (LOW) -> FALSE_POSITIVE_LOG"
+      }
+    ],
+    "ground_truth": {
+      "original_label": "BENIGN",
+      "project_class": "Benign",
+      "is_attack": false
+    }
+  }
+}

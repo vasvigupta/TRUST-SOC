@@ -102,15 +102,17 @@ def run_command(command: str):
 
     elif command == "score":
         log.info("=" * 60)
-        log.info("MILESTONE 3 — CONFIDENCE SCORING ENGINE")
+        log.info("MILESTONE 3 — CONFIDENCE SCORING ENGINE & PRIORITISATION MATRIX")
         log.info("=" * 60)
-        print("Scoring engine: To be invoked in Milestone 3.")
+        from src.scoring.prioritisation_matrix import evaluate_prioritisation_matrix
+        evaluate_prioritisation_matrix()
 
     elif command == "report":
         log.info("=" * 60)
-        log.info("MILESTONE 3 — EVIDENCE REPORT GENERATION")
+        log.info("MILESTONE 3 — EVIDENCE REPORT GENERATOR (JSON + PDF)")
         log.info("=" * 60)
-        print("Report generator: To be invoked in Milestone 3.")
+        from src.reporting.sample_reports import generate_sample_reports
+        generate_sample_reports()
 
     elif command == "serve":
         log.info("=" * 60)
